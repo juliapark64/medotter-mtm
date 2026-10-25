@@ -218,7 +218,7 @@ export default function Dashboard() {
                 {filtered.map((p, i) => (
                   <tr
                     key={p.id}
-                    onClick={() => navigate(`/dashboard/patient/${p.id}`)}
+                    onClick={() => navigate(`/integration-demo/dashboard/patient/${p.id}`)}
                     className={`border-b border-slate-100 cursor-pointer transition hover:bg-brand-50 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}
                   >
                     <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">

@@ -65,7 +65,7 @@ export default function PatientDetail() {
       <div className="min-h-screen flex items-center justify-center text-slate-500">
         <div className="text-center">
           <p className="text-2xl font-bold mb-2">Patient Not Found</p>
-          <Link to="/dashboard" className="text-brand-600 hover:underline">← Back to Dashboard</Link>
+          <Link to="/integration-demo/dashboard" className="text-brand-600 hover:underline">← Back to Dashboard</Link>
         </div>
       </div>
     )
@@ -113,7 +113,7 @@ export default function PatientDetail() {
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/integration-demo/dashboard')}
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-700 transition mb-5"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -196,7 +196,7 @@ export default function PatientDetail() {
                 )}
 
                 <Link
-                  to={`/dashboard/patient/${id}/print`}
+                  to={`/integration-demo/dashboard/patient/${id}/print`}
                   className="btn-teal"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

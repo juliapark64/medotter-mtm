@@ -274,7 +274,7 @@ export default function RpmQueue() {
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link
-                          to={`/dashboard/patient/${alert.patientId}?tab=rpm`}
+                          to={`/integration-demo/dashboard/patient/${alert.patientId}?tab=rpm`}
                           className="font-extrabold text-slate-800 text-base hover:text-brand-600 transition underline-offset-2 hover:underline"
                         >
                           {alert.patientName}
@@ -319,7 +319,7 @@ export default function RpmQueue() {
                   <div className="flex flex-col sm:items-end justify-between gap-3 shrink-0 self-stretch sm:self-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
                     <div className="flex items-center gap-2">
                       <Link
-                        to={`/dashboard/patient/${alert.patientId}?tab=rpm`}
+                        to={`/integration-demo/dashboard/patient/${alert.patientId}?tab=rpm`}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition"
                       >
                         Review RPM →

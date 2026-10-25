@@ -217,7 +217,7 @@ export default function PrescriberLog() {
                           </button>
                         )}
                         <Link
-                          to={`/dashboard/patient/${rec.patientId}?tab=rpm`}
+                          to={`/integration-demo/dashboard/patient/${rec.patientId}?tab=rpm`}
                           className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition"
                         >
                           View RPM Tab →
@@ -237,7 +237,7 @@ export default function PrescriberLog() {
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
                     <div className="flex items-center gap-2">
                       <Link
-                        to={`/dashboard/patient/${rec.patientId}`}
+                        to={`/integration-demo/dashboard/patient/${rec.patientId}`}
                         className="text-xs font-semibold text-brand-600 hover:text-brand-800"
                       >
                         Open Patient Profile →

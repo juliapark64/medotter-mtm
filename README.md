@@ -4,9 +4,15 @@
 
 MedOtter is a browser-based demonstration of medication therapy management (MTM), hypertension remote patient monitoring (RPM), and financial impact modeling. It includes fictional patient workflows, blood pressure trends and alerts, pharmacist review tools, and a deterministic budget-impact calculator.
 
-## Current study scope
+## Study website and workflow demo
 
-App version 2.5.0 asks: **Can deprescribing savings offset the added costs of RPM within MTM?** The calculator uses a hypothetical Medicare Advantage health-plan perspective, with employed MTM pharmacists and an RPM device/data vendor. It compares deprescribing alone, RPM alone, and the combined program with standard MTM and hypertension care.
+The home page introduces the planned physician-referral versus MTM-based recruitment study. **MTM + RPM Demo** opens a separate [integration overview](https://juliapark64.github.io/medotter-mtm/#/integration-demo) with the illustrative care workflow and entry points for the Pharmacist Dashboard and Patient Portal. Those tools now live under `#/integration-demo/dashboard` and `#/integration-demo/patient-portal`, with shared navigation back to the overview. Existing dashboard, patient-detail, print, and portal bookmarks redirect to the new locations, preserving query parameters.
+
+The main navigation contains Home, Insurer, Value Calculator, and MTM + RPM Demo. The header logo and eligibility options have been removed; old eligibility bookmarks return to Home. Version 2.6.0 changes presentation and navigation only. Calculator equations, evidence inputs, and browser-local RPM records retain their existing behavior.
+
+## Current calculator scope
+
+The existing calculator asks: **Can deprescribing savings offset the added costs of RPM within MTM?** It uses a hypothetical Medicare Advantage health-plan perspective, with employed MTM pharmacists and an RPM device/data vendor. It compares deprescribing alone, RPM alone, and the combined program with standard MTM and hypertension care.
 
 The primary endpoint is one-year combined-program net budget impact per member per month (PMPM), across all covered members. Three-year projections are secondary. Positive net impact means added cost; negative means modeled savings. The calculator displays program costs, drug and cardiovascular cost offsets, workload, implementation break-even, and a result excluding cardiovascular savings.
 

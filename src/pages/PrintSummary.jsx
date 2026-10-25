@@ -11,7 +11,7 @@ export default function PrintSummary() {
   if (!patient || !data) {
     return (
       <div className="min-h-screen flex items-center justify-center text-slate-500">
-        <p>Patient not found. <Link to="/dashboard" className="text-brand-600 hover:underline">Back to Dashboard</Link></p>
+        <p>Patient not found. <Link to="/integration-demo/dashboard" className="text-brand-600 hover:underline">Back to Dashboard</Link></p>
       </div>
     )
   }
@@ -23,7 +23,7 @@ export default function PrintSummary() {
     <div className="min-h-screen bg-slate-100">
       {/* Toolbar — hidden on print */}
       <div className="no-print bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <Link to={`/dashboard/patient/${id}`} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-brand-700 transition">
+        <Link to={`/integration-demo/dashboard/patient/${id}`} className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-brand-700 transition">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>

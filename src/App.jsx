@@ -1,10 +1,12 @@
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
+import { HashRouter, Navigate, Routes, Route, useLocation, useParams } from 'react-router-dom'
 import { RpmProvider } from './context/RpmContext'
 import Navbar from './components/Navbar'
 import PublicDemoNotice from './components/PublicDemoNotice'
 import Footer from './components/Footer'
 import Landing from './pages/Landing'
-import EligibilityChecker from './pages/EligibilityChecker'
+import IntegrationDemo from './pages/IntegrationDemo'
+import IntegrationDemoLayout from './components/IntegrationDemoLayout'
 import Dashboard from './pages/Dashboard'
 import PatientDetail from './pages/PatientDetail'
 import PrintSummary from './pages/PrintSummary'
@@ -12,9 +14,24 @@ import PatientPortal from './pages/PatientPortal'
 import InsurerDashboard from './pages/InsurerDashboard'
 import ValueCalculator from './pages/ValueCalculator'
 
+function LegacyDemoRedirect({ to }) {
+  const { '*': rest } = useParams()
+  const { search, hash } = useLocation()
+  return <Navigate replace to={`${to}${rest ? `/${rest}` : ''}${search}${hash}`} />
+}
+
+function ScrollToPageStart() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [pathname])
+  return null
+}
+
 export default function App() {
   return (
     <HashRouter>
+      <ScrollToPageStart />
       <RpmProvider>
         <div className="min-h-screen flex flex-col">
           <Navbar />
@@ -22,11 +39,16 @@ export default function App() {
           <main className="flex-1">
             <Routes>
               <Route path="/" element={<Landing />} />
-              <Route path="/eligibility" element={<EligibilityChecker />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/patient/:id" element={<PatientDetail />} />
-              <Route path="/dashboard/patient/:id/print" element={<PrintSummary />} />
-              <Route path="/portal" element={<PatientPortal />} />
+              <Route path="/integration-demo" element={<IntegrationDemoLayout />}>
+                <Route index element={<IntegrationDemo />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="dashboard/patient/:id" element={<PatientDetail />} />
+                <Route path="dashboard/patient/:id/print" element={<PrintSummary />} />
+                <Route path="patient-portal" element={<PatientPortal />} />
+              </Route>
+              <Route path="/eligibility" element={<Navigate replace to="/" />} />
+              <Route path="/dashboard/*" element={<LegacyDemoRedirect to="/integration-demo/dashboard" />} />
+              <Route path="/portal" element={<LegacyDemoRedirect to="/integration-demo/patient-portal" />} />
               <Route path="/insurer" element={<InsurerDashboard />} />
               <Route path="/calculator" element={<ValueCalculator />} />
               <Route path="/value-calculator" element={<ValueCalculator />} />
