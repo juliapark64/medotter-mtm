@@ -1,0 +1,256 @@
+{
+  "p001": {
+    "medications": [
+      { "name": "Metformin", "dose": "1000 mg", "frequency": "Twice daily", "prescriber": "Dr. Chen", "indication": "Type 2 Diabetes", "adherence": 70 },
+      { "name": "Lisinopril", "dose": "10 mg", "frequency": "Once daily", "prescriber": "Dr. Chen", "indication": "Hypertension / Heart Failure", "adherence": 65 },
+      { "name": "Atorvastatin", "dose": "40 mg", "frequency": "Once daily (evening)", "prescriber": "Dr. Patel", "indication": "High Cholesterol", "adherence": 58 },
+      { "name": "Carvedilol", "dose": "12.5 mg", "frequency": "Twice daily", "prescriber": "Dr. Patel", "indication": "Heart Failure", "adherence": 60 },
+      { "name": "Furosemide", "dose": "40 mg", "frequency": "Once daily", "prescriber": "Dr. Patel", "indication": "Heart Failure / Edema", "adherence": 55 },
+      { "name": "Spironolactone", "dose": "25 mg", "frequency": "Once daily", "prescriber": "Dr. Patel", "indication": "Heart Failure", "adherence": 62 },
+      { "name": "Warfarin", "dose": "5 mg", "frequency": "Once daily", "prescriber": "Dr. Chen", "indication": "Atrial Fibrillation", "adherence": 68 },
+      { "name": "Aspirin", "dose": "81 mg", "frequency": "Once daily", "prescriber": "Dr. Chen", "indication": "Cardiovascular prevention", "adherence": 72 },
+      { "name": "Omeprazole", "dose": "20 mg", "frequency": "Once daily", "prescriber": "Dr. Lee", "indication": "GERD", "adherence": 50 },
+      { "name": "Glipizide", "dose": "5 mg", "frequency": "Once daily with breakfast", "prescriber": "Dr. Chen", "indication": "Type 2 Diabetes", "adherence": 60 },
+      { "name": "Potassium Chloride", "dose": "20 mEq", "frequency": "Once daily", "prescriber": "Dr. Patel", "indication": "Hypokalemia (from furosemide)", "adherence": 48 },
+      { "name": "Vitamin D3", "dose": "2000 IU", "frequency": "Once daily", "prescriber": "Dr. Lee", "indication": "Vitamin D deficiency", "adherence": 65 }
+    ],
+    "interactions": [
+      { "severity": "major", "drugs": ["Warfarin", "Aspirin"], "description": "Concurrent use significantly increases risk of bleeding. Monitor INR closely and watch for signs of hemorrhage." },
+      { "severity": "moderate", "drugs": ["Furosemide", "Spironolactone"], "description": "Combination can cause electrolyte imbalances. Monitor potassium levels regularly." },
+      { "severity": "moderate", "drugs": ["Metformin", "Furosemide"], "description": "Furosemide may increase metformin plasma levels, raising risk of lactic acidosis. Monitor renal function." }
+    ],
+    "todos": [
+      "Schedule INR monitoring appointment within 2 weeks due to Warfarin + Aspirin interaction",
+      "Review potassium levels at next lab draw — Furosemide + Spironolactone combination requires monitoring",
+      "Counsel patient on consistent Warfarin dosing and dietary vitamin K intake",
+      "Assess adherence barriers — overall adherence at 62%, below 80% target",
+      "Confirm Omeprazole is still needed; consider deprescribing if GERD is well-controlled"
+    ]
+  },
+  "p002": {
+    "medications": [
+      { "name": "Metformin", "dose": "500 mg", "frequency": "Twice daily", "prescriber": "Dr. Singh", "indication": "Type 2 Diabetes", "adherence": 78 },
+      { "name": "Amlodipine", "dose": "5 mg", "frequency": "Once daily", "prescriber": "Dr. Singh", "indication": "Hypertension", "adherence": 80 },
+      { "name": "Albuterol inhaler", "dose": "2 puffs", "frequency": "As needed (max 4x/day)", "prescriber": "Dr. Russo", "indication": "COPD / Bronchospasm", "adherence": 65 },
+      { "name": "Tiotropium inhaler", "dose": "18 mcg", "frequency": "Once daily", "prescriber": "Dr. Russo", "indication": "COPD maintenance", "adherence": 70 },
+      { "name": "Fluticasone/Salmeterol inhaler", "dose": "250/50 mcg", "frequency": "Twice daily", "prescriber": "Dr. Russo", "indication": "COPD / Asthma", "adherence": 72 },
+      { "name": "Sertraline", "dose": "100 mg", "frequency": "Once daily", "prescriber": "Dr. Kim", "indication": "Depression", "adherence": 85 },
+      { "name": "Lorazepam", "dose": "0.5 mg", "frequency": "As needed (max 2x/day)", "prescriber": "Dr. Kim", "indication": "Anxiety", "adherence": 60 },
+      { "name": "Rosuvastatin", "dose": "20 mg", "frequency": "Once daily", "prescriber": "Dr. Singh", "indication": "Hyperlipidemia", "adherence": 75 },
+      { "name": "Aspirin", "dose": "81 mg", "frequency": "Once daily", "prescriber": "Dr. Singh", "indication": "Cardiovascular prevention", "adherence": 82 },
+      { "name": "Omeprazole", "dose": "20 mg", "frequency": "Once daily", "prescriber": "Dr. Russo", "indication": "GERD", "adherence": 68 }
+    ],
+    "interactions": [
+      { "severity": "major", "drugs": ["Lorazepam", "Sertraline"], "description": "CNS depression risk. Sertraline may increase lorazepam sedation. Monitor for excessive drowsiness, respiratory depression." },
+      { "severity": "moderate", "drugs": ["Sertraline", "Aspirin"], "description": "SSRIs combined with NSAIDs/aspirin increase risk of GI bleeding. Confirm gastroprotection (omeprazole) is adequate." },
+      { "severity": "minor", "drugs": ["Tiotropium", "Albuterol"], "description": "Additive anticholinergic effects. Monitor for dry mouth, urinary retention, and constipation." }
+    ],
+    "todos": [
+      "Review Lorazepam use frequency — benzodiazepines in elderly patients carry fall and cognitive impairment risks",
+      "Assess COPD control: confirm patient is using inhaler technique correctly for all 3 inhalers",
+      "Discuss SSRIs + aspirin GI bleeding risk; confirm omeprazole is appropriate gastroprotection",
+      "Monitor blood glucose with metformin given reduced renal function risk in COPD patients",
+      "Schedule pulmonology follow-up if COPD exacerbations have increased"
+    ]
+  },
+  "p003": {
+    "medications": [
+      { "name": "Donepezil", "dose": "10 mg", "frequency": "Once daily (bedtime)", "prescriber": "Dr. Wallace", "indication": "Alzheimer's Disease", "adherence": 50 },
+      { "name": "Memantine", "dose": "10 mg", "frequency": "Twice daily", "prescriber": "Dr. Wallace", "indication": "Alzheimer's Disease (moderate-severe)", "adherence": 45 },
+      { "name": "Amlodipine", "dose": "10 mg", "frequency": "Once daily", "prescriber": "Dr. Torres", "indication": "Hypertension", "adherence": 55 },
+      { "name": "Hydrochlorothiazide", "dose": "25 mg", "frequency": "Once daily", "prescriber": "Dr. Torres", "indication": "Hypertension", "adherence": 58 },
+      { "name": "Metformin", "dose": "500 mg", "frequency": "Once daily", "prescriber": "Dr. Torres", "indication": "Type 2 Diabetes", "adherence": 52 },
+      { "name": "Alendronate", "dose": "70 mg", "frequency": "Once weekly", "prescriber": "Dr. Torres", "indication": "Osteoporosis", "adherence": 48 },
+      { "name": "Calcium Carbonate", "dose": "500 mg", "frequency": "Twice daily (with meals)", "prescriber": "Dr. Torres", "indication": "Osteoporosis / Bone health", "adherence": 60 },
+      { "name": "Vitamin D3", "dose": "1000 IU", "frequency": "Once daily", "prescriber": "Dr. Torres", "indication": "Bone health", "adherence": 62 },
+      { "name": "Quetiapine", "dose": "25 mg", "frequency": "Once daily (bedtime)", "prescriber": "Dr. Wallace", "indication": "Behavioral symptoms of dementia", "adherence": 40 },
+      { "name": "Lorazepam", "dose": "0.5 mg", "frequency": "As needed", "prescriber": "Dr. Wallace", "indication": "Agitation / Anxiety", "adherence": 55 },
+      { "name": "Simvastatin", "dose": "40 mg", "frequency": "Once daily (evening)", "prescriber": "Dr. Torres", "indication": "High Cholesterol", "adherence": 50 }
+    ],
+    "interactions": [
+      { "severity": "major", "drugs": ["Donepezil", "Lorazepam"], "description": "Anticholinesterase inhibitors and benzodiazepines have opposing mechanisms. Lorazepam may reduce donepezil efficacy and increase fall risk in elderly dementia patients." },
+      { "severity": "major", "drugs": ["Quetiapine", "Lorazepam"], "description": "Both cause CNS and respiratory depression. Combination significantly increases risk of sedation, falls, and aspiration pneumonia in elderly patients. Black box warning." },
+      { "severity": "moderate", "drugs": ["Alendronate", "Calcium Carbonate"], "description": "Calcium supplements can reduce alendronate absorption. Alendronate must be taken 30+ minutes before calcium or any food." }
+    ],
+    "todos": [
+      "URGENT: Review Quetiapine + Lorazepam combination — high-risk combination in elderly dementia patient",
+      "Evaluate alendronate administration timing — must be taken 30+ min before food and calcium supplements",
+      "Coordinate with caregiver to improve medication adherence; overall adherence 54%, significantly below target",
+      "Review quetiapine appropriateness — antipsychotics for BPSD carry FDA black box warning in elderly",
+      "Ensure vitamin D and calcium are adequately supporting bone health; check 25-OH vitamin D level"
+    ]
+  },
+  "p004": {
+    "medications": [
+      { "name": "Carvedilol", "dose": "25 mg", "frequency": "Twice daily", "prescriber": "Dr. Obi", "indication": "Heart Failure / Hypertension", "adherence": 90 },
+      { "name": "Lisinopril", "dose": "20 mg", "frequency": "Once daily", "prescriber": "Dr. Obi", "indication": "Heart Failure / Hypertension", "adherence": 88 },
+      { "name": "Furosemide", "dose": "40 mg", "frequency": "Once daily", "prescriber": "Dr. Obi", "indication": "Heart Failure / Fluid retention", "adherence": 92 },
+      { "name": "Atorvastatin", "dose": "80 mg", "frequency": "Once daily (evening)", "prescriber": "Dr. Obi", "indication": "High Cholesterol / Cardiovascular risk", "adherence": 85 },
+      { "name": "Ezetimibe", "dose": "10 mg", "frequency": "Once daily", "prescriber": "Dr. Obi", "indication": "High Cholesterol (add-on)", "adherence": 87 },
+      { "name": "Aspirin", "dose": "81 mg", "frequency": "Once daily", "prescriber": "Dr. Obi", "indication": "Cardiovascular prevention", "adherence": 90 },
+      { "name": "Potassium Chloride", "dose": "20 mEq", "frequency": "Once daily", "prescriber": "Dr. Obi", "indication": "Hypokalemia prevention", "adherence": 84 },
+      { "name": "Digoxin", "dose": "0.125 mg", "frequency": "Once daily", "prescriber": "Dr. Obi", "indication": "Heart Failure / Rate control", "adherence": 88 }
+    ],
+    "interactions": [
+      { "severity": "moderate", "drugs": ["Digoxin", "Carvedilol"], "description": "Carvedilol can increase digoxin levels. Monitor for digoxin toxicity signs: nausea, visual changes, bradycardia. Check digoxin levels periodically." },
+      { "severity": "moderate", "drugs": ["Furosemide", "Digoxin"], "description": "Furosemide-induced hypokalemia increases risk of digoxin toxicity. Ensure potassium levels remain in normal range." },
+      { "severity": "minor", "drugs": ["Lisinopril", "Potassium Chloride"], "description": "ACE inhibitors can cause hyperkalemia. Combined with potassium supplementation, monitor serum potassium closely." }
+    ],
+    "todos": [
+      "Check digoxin serum level at next lab visit — interaction with carvedilol may elevate levels",
+      "Confirm potassium level is within therapeutic range given furosemide + digoxin combination",
+      "Review blood pressure log; patient may benefit from home monitoring given heart failure history",
+      "Assess for signs of ACE inhibitor cough from lisinopril; consider ARB switch if symptomatic"
+    ]
+  },
+  "p005": {
+    "medications": [
+      { "name": "Bictegravir/Tenofovir/Emtricitabine (Biktarvy)", "dose": "50/25/200 mg", "frequency": "Once daily", "prescriber": "Dr. Alvarez", "indication": "HIV-1 Infection", "adherence": 95 },
+      { "name": "Atorvastatin", "dose": "20 mg", "frequency": "Once daily (evening)", "prescriber": "Dr. Alvarez", "indication": "High Cholesterol", "adherence": 90 },
+      { "name": "Amlodipine", "dose": "5 mg", "frequency": "Once daily", "prescriber": "Dr. Alvarez", "indication": "Hypertension", "adherence": 92 },
+      { "name": "Escitalopram", "dose": "20 mg", "frequency": "Once daily", "prescriber": "Dr. Reyes", "indication": "Depression / Anxiety", "adherence": 94 },
+      { "name": "Bupropion XL", "dose": "150 mg", "frequency": "Once daily", "prescriber": "Dr. Reyes", "indication": "Depression", "adherence": 90 },
+      { "name": "Clonazepam", "dose": "0.5 mg", "frequency": "As needed (max once daily)", "prescriber": "Dr. Reyes", "indication": "Panic disorder", "adherence": 85 },
+      { "name": "Rosuvastatin", "dose": "10 mg", "frequency": "Once daily", "prescriber": "Dr. Alvarez", "indication": "HIV-associated dyslipidemia", "adherence": 88 },
+      { "name": "Vitamin B12", "dose": "1000 mcg", "frequency": "Once daily", "prescriber": "Dr. Alvarez", "indication": "Deficiency prevention (HIV patients)", "adherence": 92 },
+      { "name": "Cotrimoxazole (TMP-SMX)", "dose": "160/800 mg", "frequency": "3x weekly", "prescriber": "Dr. Alvarez", "indication": "PCP prophylaxis", "adherence": 89 }
+    ],
+    "interactions": [
+      { "severity": "moderate", "drugs": ["Escitalopram", "Bupropion"], "description": "Combination increases seizure threshold lowering risk and serotonin syndrome risk. Monitor for agitation, tremors, or unusual behavior changes." },
+      { "severity": "moderate", "drugs": ["Atorvastatin", "Rosuvastatin"], "description": "Two statins prescribed concurrently — unusual and may indicate duplication error. Review with prescriber to confirm clinical intent." },
+      { "severity": "minor", "drugs": ["Bictegravir", "Cotrimoxazole"], "description": "Biktarvy may slightly increase TMP-SMX levels. Monitor for sulfa-related adverse effects, though combination is generally well tolerated." }
+    ],
+    "todos": [
+      "REVIEW: Patient appears to be on two statins (Atorvastatin + Rosuvastatin) — confirm this is intentional with prescriber",
+      "Monitor for serotonin syndrome with Escitalopram + Bupropion combination",
+      "Confirm CD4 count and viral load at next lab; adjust TMP-SMX prophylaxis threshold if CD4 > 200",
+      "Screen for drug-drug interactions between Biktarvy and any new medications before prescribing"
+    ]
+  },
+  "p006": {
+    "medications": [
+      { "name": "Sevelamer", "dose": "800 mg", "frequency": "Three times daily with meals", "prescriber": "Dr. Huang", "indication": "Hyperphosphatemia (ESKD)", "adherence": 75 },
+      { "name": "Darbepoetin alfa", "dose": "40 mcg", "frequency": "Once weekly (injection)", "prescriber": "Dr. Huang", "indication": "Anemia of CKD", "adherence": 82 },
+      { "name": "Calcitriol", "dose": "0.25 mcg", "frequency": "Once daily", "prescriber": "Dr. Huang", "indication": "Secondary hyperparathyroidism (ESKD)", "adherence": 78 },
+      { "name": "Lisinopril", "dose": "5 mg", "frequency": "Once daily", "prescriber": "Dr. Huang", "indication": "Hypertension (renal protection)", "adherence": 80 },
+      { "name": "Amlodipine", "dose": "5 mg", "frequency": "Once daily", "prescriber": "Dr. Huang", "indication": "Hypertension", "adherence": 79 },
+      { "name": "Insulin Glargine", "dose": "20 units", "frequency": "Once daily (bedtime)", "prescriber": "Dr. Huang", "indication": "Type 2 Diabetes", "adherence": 73 },
+      { "name": "Insulin Lispro", "dose": "Per sliding scale", "frequency": "Before meals", "prescriber": "Dr. Huang", "indication": "Type 2 Diabetes (mealtime control)", "adherence": 70 },
+      { "name": "Sodium Bicarbonate", "dose": "650 mg", "frequency": "Twice daily", "prescriber": "Dr. Huang", "indication": "Metabolic acidosis (CKD)", "adherence": 77 },
+      { "name": "Alendronate", "dose": "35 mg", "frequency": "Once weekly", "prescriber": "Dr. Huang", "indication": "Osteoporosis / Bone disease", "adherence": 72 },
+      { "name": "Atenolol", "dose": "50 mg", "frequency": "Once daily", "prescriber": "Dr. Huang", "indication": "Hypertension", "adherence": 80 },
+      { "name": "Ferrous Sulfate", "dose": "325 mg", "frequency": "Twice daily (between meals)", "prescriber": "Dr. Huang", "indication": "Iron deficiency anemia", "adherence": 68 },
+      { "name": "Pantoprazole", "dose": "40 mg", "frequency": "Once daily", "prescriber": "Dr. Huang", "indication": "Gastroprotection (with iron)", "adherence": 76 },
+      { "name": "Cinacalcet", "dose": "30 mg", "frequency": "Once daily with meals", "prescriber": "Dr. Huang", "indication": "Secondary hyperparathyroidism (ESKD)", "adherence": 74 }
+    ],
+    "interactions": [
+      { "severity": "major", "drugs": ["Sevelamer", "Alendronate"], "description": "Phosphate binders like sevelamer can bind alendronate and reduce absorption. Alendronate should be taken separately (2+ hours) from sevelamer." },
+      { "severity": "moderate", "drugs": ["Ferrous Sulfate", "Sevelamer"], "description": "Sevelamer can bind iron and reduce absorption. Take ferrous sulfate at least 2 hours before or after sevelamer." },
+      { "severity": "moderate", "drugs": ["Calcitriol", "Cinacalcet"], "description": "Both agents affect calcium/PTH balance. Combination requires close monitoring of calcium and PTH levels to avoid hypocalcemia." }
+    ],
+    "todos": [
+      "Review timing of sevelamer, alendronate, and ferrous sulfate to prevent drug binding interactions",
+      "Monitor PTH, calcium, and phosphorus levels — on both calcitriol and cinacalcet",
+      "Assess insulin dose adjustments based on renal function (ESKD reduces insulin clearance)",
+      "Confirm alendronate is appropriate for ESKD stage — bisphosphonates may be contraindicated at GFR < 30",
+      "Review anemia management: check hemoglobin, iron saturation, and darbepoetin response"
+    ]
+  },
+  "p007": {
+    "medications": [
+      { "name": "Albuterol inhaler", "dose": "2 puffs", "frequency": "As needed (up to 4x/day)", "prescriber": "Dr. Morales", "indication": "Asthma / Bronchospasm (rescue)", "adherence": 95 },
+      { "name": "Fluticasone propionate inhaler", "dose": "110 mcg", "frequency": "Twice daily", "prescriber": "Dr. Morales", "indication": "Asthma (maintenance/controller)", "adherence": 97 },
+      { "name": "Montelukast", "dose": "10 mg", "frequency": "Once daily (evening)", "prescriber": "Dr. Morales", "indication": "Asthma / Allergic rhinitis", "adherence": 93 },
+      { "name": "Rosuvastatin", "dose": "10 mg", "frequency": "Once daily", "prescriber": "Dr. Collins", "indication": "High Cholesterol", "adherence": 96 },
+      { "name": "Amlodipine", "dose": "5 mg", "frequency": "Once daily", "prescriber": "Dr. Collins", "indication": "Hypertension", "adherence": 95 },
+      { "name": "Cetirizine", "dose": "10 mg", "frequency": "Once daily", "prescriber": "Dr. Morales", "indication": "Allergic rhinitis", "adherence": 94 },
+      { "name": "Naproxen", "dose": "500 mg", "frequency": "As needed (max twice daily)", "prescriber": "Dr. Collins", "indication": "Arthritis pain", "adherence": 95 }
+    ],
+    "interactions": [
+      { "severity": "major", "drugs": ["Naproxen", "Asthma (NSAID sensitivity)"], "description": "NSAIDs can trigger aspirin-exacerbated respiratory disease (AERD) in asthma patients. Patient's allergy to NSAIDs is documented — Naproxen should be reviewed with prescriber immediately." },
+      { "severity": "minor", "drugs": ["Montelukast", "Cetirizine"], "description": "Additive effect for allergic rhinitis symptoms. Generally safe; minor sedation risk. Reassess if both are still required." }
+    ],
+    "todos": [
+      "URGENT: Patient has documented NSAID allergy but is prescribed Naproxen — contact prescriber immediately",
+      "Review NSAID sensitivity in asthma: consider acetaminophen as safer alternative for arthritis pain",
+      "Confirm asthma is well controlled; patient using rescue inhaler — track frequency of use",
+      "Counsel patient to continue excellent adherence; at 95%, this is a model patient"
+    ]
+  },
+  "p008": {
+    "medications": [
+      { "name": "Metformin", "dose": "1000 mg", "frequency": "Twice daily", "prescriber": "Dr. Hasan", "indication": "Type 2 Diabetes", "adherence": 85 },
+      { "name": "Empagliflozin (Jardiance)", "dose": "10 mg", "frequency": "Once daily", "prescriber": "Dr. Hasan", "indication": "Type 2 Diabetes / Cardiovascular risk", "adherence": 83 },
+      { "name": "Atorvastatin", "dose": "40 mg", "frequency": "Once daily", "prescriber": "Dr. Hasan", "indication": "High Cholesterol", "adherence": 80 },
+      { "name": "Sertraline", "dose": "150 mg", "frequency": "Once daily", "prescriber": "Dr. Nixon", "indication": "Major Depressive Disorder", "adherence": 88 },
+      { "name": "Bupropion SR", "dose": "200 mg", "frequency": "Once daily", "prescriber": "Dr. Nixon", "indication": "Major Depressive Disorder (add-on)", "adherence": 82 },
+      { "name": "Zolpidem", "dose": "5 mg", "frequency": "As needed at bedtime", "prescriber": "Dr. Nixon", "indication": "Insomnia", "adherence": 75 },
+      { "name": "Vitamin D3", "dose": "2000 IU", "frequency": "Once daily", "prescriber": "Dr. Hasan", "indication": "Vitamin D deficiency", "adherence": 78 },
+      { "name": "Omega-3 fatty acids", "dose": "1000 mg", "frequency": "Twice daily", "prescriber": "Dr. Hasan", "indication": "Hypertriglyceridemia", "adherence": 80 },
+      { "name": "Lithium", "dose": "Documented allergy", "frequency": "—", "prescriber": "—", "indication": "ALLERGY — DO NOT PRESCRIBE", "adherence": 0 }
+    ],
+    "interactions": [
+      { "severity": "moderate", "drugs": ["Sertraline", "Bupropion"], "description": "Both serotonergic agents. Risk of serotonin syndrome, seizures (lowered threshold with bupropion). Monitor for agitation, tremors, myoclonus." },
+      { "severity": "moderate", "drugs": ["Zolpidem", "Sertraline"], "description": "Sertraline can increase zolpidem plasma levels. Monitor for excessive sedation, confusion, or next-day impairment." },
+      { "severity": "minor", "drugs": ["Empagliflozin", "Metformin"], "description": "Both agents lower blood glucose. Monitor for hypoglycemia, though risk is lower compared to insulin or sulfonylureas." }
+    ],
+    "todos": [
+      "Review Zolpidem use: benzodiazepine-related drugs in patients on SSRIs require regular reassessment",
+      "Assess depression response to Sertraline + Bupropion combination; consider psychiatric consultation",
+      "Check HbA1c to assess diabetes control; two agents (Metformin + Empagliflozin) should provide good coverage",
+      "Verify lithium allergy documentation — note in record that lithium cannot be used",
+      "Counsel on sleep hygiene as an alternative to ongoing Zolpidem use"
+    ]
+  },
+  "p009": {
+    "medications": [
+      { "name": "Sacubitril/Valsartan (Entresto)", "dose": "49/51 mg", "frequency": "Twice daily", "prescriber": "Dr. Ford", "indication": "Heart Failure with reduced EF", "adherence": 80 },
+      { "name": "Carvedilol", "dose": "25 mg", "frequency": "Twice daily", "prescriber": "Dr. Ford", "indication": "Heart Failure / Hypertension", "adherence": 78 },
+      { "name": "Spironolactone", "dose": "25 mg", "frequency": "Once daily", "prescriber": "Dr. Ford", "indication": "Heart Failure", "adherence": 76 },
+      { "name": "Furosemide", "dose": "80 mg", "frequency": "Once daily", "prescriber": "Dr. Ford", "indication": "Heart Failure / Fluid overload", "adherence": 80 },
+      { "name": "Metformin", "dose": "500 mg", "frequency": "Twice daily", "prescriber": "Dr. Grant", "indication": "Type 2 Diabetes", "adherence": 75 },
+      { "name": "Insulin Glargine", "dose": "15 units", "frequency": "Once daily", "prescriber": "Dr. Grant", "indication": "Type 2 Diabetes", "adherence": 72 },
+      { "name": "Atorvastatin", "dose": "80 mg", "frequency": "Once daily", "prescriber": "Dr. Grant", "indication": "High Cholesterol / Cardiovascular risk", "adherence": 79 },
+      { "name": "Dapagliflozin (Farxiga)", "dose": "10 mg", "frequency": "Once daily", "prescriber": "Dr. Ford", "indication": "Heart Failure / Diabetes", "adherence": 77 },
+      { "name": "Aspirin", "dose": "81 mg", "frequency": "Once daily", "prescriber": "Dr. Ford", "indication": "Cardiovascular prevention", "adherence": 80 },
+      { "name": "Eplerenone", "dose": "25 mg", "frequency": "Once daily", "prescriber": "Dr. Ford", "indication": "Heart Failure (alternative to spironolactone)", "adherence": 74 },
+      { "name": "Potassium Chloride", "dose": "20 mEq", "frequency": "Once daily", "prescriber": "Dr. Ford", "indication": "Hypokalemia prevention", "adherence": 76 }
+    ],
+    "interactions": [
+      { "severity": "major", "drugs": ["Spironolactone", "Eplerenone"], "description": "Two mineralocorticoid antagonists prescribed simultaneously. Potential duplicate therapy — high risk of hyperkalemia. Confirm with cardiologist which agent is intended." },
+      { "severity": "major", "drugs": ["Sacubitril/Valsartan", "ACE Inhibitors"], "description": "Patient has documented ACE inhibitor allergy. Sacubitril/Valsartan (an ARB) is appropriately used instead. Ensure no ACE inhibitors are ever prescribed." },
+      { "severity": "moderate", "drugs": ["Furosemide", "Dapagliflozin"], "description": "Both are diuretics with complementary mechanisms. Monitor closely for volume depletion, hypotension, and electrolyte imbalances." }
+    ],
+    "todos": [
+      "URGENT: Review Spironolactone + Eplerenone duplicate therapy — high hyperkalemia risk; confirm with cardiologist",
+      "Monitor potassium levels closely given multiple agents affecting serum K+",
+      "Educate patient on fluid restriction and daily weight monitoring for heart failure self-management",
+      "Check renal function before adjusting dapagliflozin — contraindicated if eGFR < 25 for HF indication",
+      "Reassess metformin dose with insulin — risk of lactic acidosis in heart failure patients should be evaluated"
+    ]
+  },
+  "p010": {
+    "medications": [
+      { "name": "Tiotropium inhaler", "dose": "18 mcg", "frequency": "Once daily", "prescriber": "Dr. Walsh", "indication": "COPD maintenance", "adherence": 90 },
+      { "name": "Formoterol inhaler", "dose": "12 mcg", "frequency": "Twice daily", "prescriber": "Dr. Walsh", "indication": "COPD maintenance (LABA)", "adherence": 88 },
+      { "name": "Albuterol inhaler", "dose": "2 puffs", "frequency": "As needed (up to 4x/day)", "prescriber": "Dr. Walsh", "indication": "COPD / Bronchospasm rescue", "adherence": 85 },
+      { "name": "Prednisone", "dose": "5 mg", "frequency": "Once daily (maintenance)", "prescriber": "Dr. Walsh", "indication": "COPD (chronic oral steroid)", "adherence": 87 },
+      { "name": "Amlodipine", "dose": "10 mg", "frequency": "Once daily", "prescriber": "Dr. Walsh", "indication": "Hypertension", "adherence": 89 },
+      { "name": "Sertraline", "dose": "100 mg", "frequency": "Once daily", "prescriber": "Dr. Beck", "indication": "Depression (COPD-related)", "adherence": 86 },
+      { "name": "Zolpidem", "dose": "5 mg", "frequency": "At bedtime", "prescriber": "Dr. Beck", "indication": "Insomnia", "adherence": 82 },
+      { "name": "Celecoxib", "dose": "200 mg", "frequency": "Once daily", "prescriber": "Dr. Walsh", "indication": "Osteoarthritis pain", "adherence": 88 }
+    ],
+    "interactions": [
+      { "severity": "major", "drugs": ["Prednisone", "Sertraline"], "description": "Chronic corticosteroids combined with SSRIs increase risk of GI bleeding. Confirm adequate gastroprotection (PPI) is in place." },
+      { "severity": "moderate", "drugs": ["Zolpidem", "COPD"], "description": "Sedative-hypnotics like Zolpidem can suppress respiratory drive, which is dangerous in COPD patients. Consider sleep hygiene interventions or lower-risk alternatives." },
+      { "severity": "moderate", "drugs": ["Celecoxib", "Prednisone"], "description": "Combination of COX-2 inhibitor and corticosteroid increases GI ulcer and cardiovascular risk. Monitor for symptoms and consider PPI prophylaxis." }
+    ],
+    "todos": [
+      "Add PPI prophylaxis — patient on Prednisone + Celecoxib combination without gastroprotection noted",
+      "Evaluate Zolpidem use in COPD — respiratory depression risk; discuss with pulmonologist",
+      "Assess COPD exacerbation frequency; consider pulmonary rehabilitation referral",
+      "Review need for chronic oral prednisone — high long-term risk (osteoporosis, hyperglycemia, adrenal suppression)",
+      "Counsel on smoking cessation if applicable — single most effective intervention for COPD progression"
+    ]
+  }
+}

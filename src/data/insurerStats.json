@@ -1,0 +1,56 @@
+{
+  "insurer": "Summit Health Plan",
+  "reportPeriod": "January – September 2026",
+  "kpis": {
+    "reviewCompletionRate": 68,
+    "eligibleMembers": 1847,
+    "reviewsCompleted": 1256,
+    "avgAdherenceRate": 79,
+    "medicationProblemsResolved": 142,
+    "estimatedCostSavings": 284000,
+    "avgSavingsPerMember": 226
+  },
+  "monthlyCompletion": [
+    { "month": "Jan", "completed": 98, "target": 150 },
+    { "month": "Feb", "completed": 112, "target": 150 },
+    { "month": "Mar", "completed": 127, "target": 150 },
+    { "month": "Apr", "completed": 141, "target": 150 },
+    { "month": "May", "completed": 155, "target": 150 },
+    { "month": "Jun", "completed": 163, "target": 150 },
+    { "month": "Jul", "completed": 148, "target": 150 },
+    { "month": "Aug", "completed": 172, "target": 150 },
+    { "month": "Sep", "completed": 140, "target": 150 }
+  ],
+  "adherenceTrend": [
+    { "month": "Jan", "rate": 72 },
+    { "month": "Feb", "rate": 74 },
+    { "month": "Mar", "rate": 73 },
+    { "month": "Apr", "rate": 76 },
+    { "month": "May", "rate": 78 },
+    { "month": "Jun", "rate": 80 },
+    { "month": "Jul", "rate": 79 },
+    { "month": "Aug", "rate": 82 },
+    { "month": "Sep", "rate": 79 }
+  ],
+  "problemTypes": [
+    { "name": "Drug Interactions", "value": 38, "color": "#ef4444" },
+    { "name": "Non-Adherence", "value": 47, "color": "#f59e0b" },
+    { "name": "Duplicate Therapy", "value": 21, "color": "#8b5cf6" },
+    { "name": "Cost / Affordability", "value": 19, "color": "#3b82f6" },
+    { "name": "Dosing Error", "value": 17, "color": "#ec4899" }
+  ],
+  "topConditions": [
+    { "condition": "Hypertension", "members": 1102 },
+    { "condition": "Diabetes", "members": 876 },
+    { "condition": "High Cholesterol", "members": 743 },
+    { "condition": "Heart Failure", "members": 412 },
+    { "condition": "Respiratory Disease", "members": 389 }
+  ],
+  "costSavingsByCategory": [
+    { "category": "Hospitalization Avoidance", "savings": 118000 },
+    { "category": "ER Visit Reduction", "savings": 67000 },
+    { "category": "Generic Substitution", "savings": 54000 },
+    { "category": "Deprescribing", "savings": 31000 },
+    { "category": "Adherence Improvement", "savings": 14000 }
+  ]
+}

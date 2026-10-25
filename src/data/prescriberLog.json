@@ -1,0 +1,156 @@
+[
+  {
+    "id": "rec001",
+    "patientName": "Margaret Holloway",
+    "patientId": "p001",
+    "recommendation": "Discontinue concurrent Aspirin 81mg use while on Warfarin — elevated major bleeding risk. Consider monitoring-only approach with INR checks every 2 weeks.",
+    "prescriber": "Dr. Chen",
+    "specialty": "Internal Medicine",
+    "dateSent": "2026-09-05",
+    "status": "Pending",
+    "responseNote": ""
+  },
+  {
+    "id": "rec002",
+    "patientName": "Margaret Holloway",
+    "patientId": "p001",
+    "recommendation": "Review Omeprazole 20mg — patient has been on PPI for 4+ years without documented reassessment. Consider step-down or de-prescribing trial.",
+    "prescriber": "Dr. Lee",
+    "specialty": "Internal Medicine",
+    "dateSent": "2026-09-05",
+    "status": "Accepted",
+    "responseNote": "Agreed. Will schedule a 4-week PPI holiday and reassess at next visit."
+  },
+  {
+    "id": "rec003",
+    "patientName": "Dorothy Espinoza",
+    "patientId": "p003",
+    "recommendation": "URGENT: Quetiapine + Lorazepam combination poses high fall and respiratory depression risk in 79-year-old dementia patient. Request urgent review — consider Lorazepam discontinuation with slow taper.",
+    "prescriber": "Dr. Wallace",
+    "specialty": "Neurology / Geriatrics",
+    "dateSent": "2026-09-03",
+    "status": "Accepted",
+    "responseNote": "Thank you for the flag. Initiating a 4-week Lorazepam taper. Arranged home health visit to monitor."
+  },
+  {
+    "id": "rec004",
+    "patientName": "Dorothy Espinoza",
+    "patientId": "p003",
+    "recommendation": "Alendronate administration timing concern — patient taking with calcium supplements simultaneously, significantly reducing bisphosphonate absorption. Recommend patient education and schedule change.",
+    "prescriber": "Dr. Torres",
+    "specialty": "Internal Medicine",
+    "dateSent": "2026-09-03",
+    "status": "Accepted",
+    "responseNote": "Will have nurse call patient to clarify timing. Updating instructions on prescription label."
+  },
+  {
+    "id": "rec005",
+    "patientName": "Linda Yamamoto",
+    "patientId": "p005",
+    "recommendation": "Possible duplicate statin therapy: Atorvastatin 20mg AND Rosuvastatin 10mg both prescribed simultaneously. Please confirm this is intentional or if one should be discontinued.",
+    "prescriber": "Dr. Alvarez",
+    "specialty": "Infectious Disease",
+    "dateSent": "2026-09-06",
+    "status": "Declined",
+    "responseNote": "Confirmed intentional. Patient has HIV-associated hyperlipidemia requiring aggressive lipid management. Both are being used at lower doses to minimize myopathy risk."
+  },
+  {
+    "id": "rec006",
+    "patientName": "Robert Tran",
+    "patientId": "p002",
+    "recommendation": "Lorazepam 0.5mg as-needed in 68-year-old patient — high risk of falls, confusion, and physical dependence. Recommend cognitive behavioral therapy for anxiety as first-line, with planned Lorazepam de-prescribing.",
+    "prescriber": "Dr. Kim",
+    "specialty": "Psychiatry",
+    "dateSent": "2026-09-02",
+    "status": "Pending",
+    "responseNote": ""
+  },
+  {
+    "id": "rec007",
+    "patientName": "Susan Park",
+    "patientId": "p009",
+    "recommendation": "URGENT: Patient appears to be on both Spironolactone 25mg AND Eplerenone 25mg — two mineralocorticoid antagonists simultaneously. High risk of life-threatening hyperkalemia. Please clarify which is intended.",
+    "prescriber": "Dr. Ford",
+    "specialty": "Cardiology",
+    "dateSent": "2026-09-07",
+    "status": "Accepted",
+    "responseNote": "Error confirmed — Spironolactone was meant to be discontinued when Eplerenone was started. Spironolactone stopped immediately. Ordering stat BMP to check potassium."
+  },
+  {
+    "id": "rec008",
+    "patientName": "Patricia Nguyen",
+    "patientId": "p007",
+    "recommendation": "URGENT: Patient has documented NSAID allergy but Naproxen 500mg is on her active medication list. Given her asthma diagnosis, NSAID use could trigger severe bronchospasm. Please review and substitute.",
+    "prescriber": "Dr. Collins",
+    "specialty": "General Practice",
+    "dateSent": "2026-09-04",
+    "status": "Accepted",
+    "responseNote": "Thank you for catching this. Switching to Acetaminophen 500mg PRN for arthritis pain. Naproxen discontinued."
+  },
+  {
+    "id": "rec009",
+    "patientName": "Thomas Brennan",
+    "patientId": "p010",
+    "recommendation": "Recommend adding PPI (e.g. Pantoprazole 40mg daily) for gastroprotection — patient is on concurrent Prednisone and Celecoxib, which significantly increases GI ulcer risk.",
+    "prescriber": "Dr. Walsh",
+    "specialty": "Pulmonology",
+    "dateSent": "2026-09-08",
+    "status": "Pending",
+    "responseNote": ""
+  },
+  {
+    "id": "rec010",
+    "patientName": "Thomas Brennan",
+    "patientId": "p010",
+    "recommendation": "Zolpidem use in COPD patient — sedative-hypnotics can suppress respiratory drive. Recommend discussion with pulmonologist before continuing. Consider melatonin or CBT-I as safer alternatives.",
+    "prescriber": "Dr. Beck",
+    "specialty": "Psychiatry",
+    "dateSent": "2026-09-08",
+    "status": "Declined",
+    "responseNote": "Patient has severe insomnia and failed CBT-I previously. Continuing Zolpidem 5mg at lowest effective dose with close monitoring. Coordinating with pulmonology."
+  },
+  {
+    "id": "rec011",
+    "patientName": "Charles Mbeki",
+    "patientId": "p006",
+    "recommendation": "Alendronate may be contraindicated given patient's ESKD stage (eGFR likely <30). Request current eGFR to determine if bisphosphonate therapy should be discontinued.",
+    "prescriber": "Dr. Huang",
+    "specialty": "Nephrology",
+    "dateSent": "2026-09-01",
+    "status": "Accepted",
+    "responseNote": "Confirmed eGFR is 22. Alendronate discontinued. Switching to denosumab for bone protection per KDIGO guidelines."
+  },
+  {
+    "id": "rec012",
+    "patientName": "William Garza",
+    "patientId": "p008",
+    "recommendation": "Ongoing Zolpidem use in patient on SSRI — recommend reassessment of sleep quality and daytime sedation. Consider switching to CBT-I program or a melatonin receptor agonist (Ramelteon).",
+    "prescriber": "Dr. Nixon",
+    "specialty": "Psychiatry",
+    "dateSent": "2026-09-09",
+    "status": "Pending",
+    "responseNote": ""
+  },
+  {
+    "id": "rec013",
+    "patientName": "Robert Tran",
+    "patientId": "p002",
+    "recommendation": "Deprescribing proposal: Consider tapering Amlodipine 10mg to 5mg daily given borderline edema. Recommend initiating RPM surveillance to closely monitor blood pressure during taper.",
+    "prescriber": "Dr. Singh",
+    "specialty": "Internal Medicine",
+    "dateSent": "2026-09-08",
+    "status": "Pending",
+    "responseNote": ""
+  },
+  {
+    "id": "rec014",
+    "patientName": "James Okafor",
+    "patientId": "p004",
+    "recommendation": "Step-down / Deprescribing trial: Consider tapering Lisinopril from 20mg to 10mg daily — patient BP is consistently at goal (120/74 mmHg) for >6 months. Recommend close RPM monitoring during dose taper.",
+    "prescriber": "Dr. Obi",
+    "specialty": "Cardiology",
+    "dateSent": "2026-09-09",
+    "status": "Accepted",
+    "responseNote": "Agreed. Reduce Lisinopril to 10mg daily and monitor with RPM."
+  }
+]
