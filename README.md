@@ -1,6 +1,6 @@
 # MedOtter MTM
 
-[Open the live demo](https://juliapark64.github.io/medotter-mtm/) · [Open the calculator](https://juliapark64.github.io/medotter-mtm/#/calculator) · [Source code](https://github.com/juliapark64/medotter-mtm)
+[Open the live demo](https://juliapark64.github.io/medotter-mtm/) · [Recruitment microsimulation](https://juliapark64.github.io/medotter-mtm/#/simulation) · [Open the calculator](https://juliapark64.github.io/medotter-mtm/#/calculator) · [Source code](https://github.com/juliapark64/medotter-mtm)
 
 MedOtter is a browser-based demonstration of medication therapy management (MTM), hypertension remote patient monitoring (RPM), and financial impact modeling. It includes fictional patient workflows, blood pressure trends and alerts, pharmacist review tools, and a deterministic budget-impact calculator.
 
@@ -8,7 +8,15 @@ MedOtter is a browser-based demonstration of medication therapy management (MTM)
 
 The home page introduces the planned physician-referral versus MTM-based recruitment study. **MTM + RPM Demo** opens a separate [integration overview](https://juliapark64.github.io/medotter-mtm/#/integration-demo) with the illustrative care workflow and entry points for the Pharmacist Dashboard and Patient Portal. Those tools now live under `#/integration-demo/dashboard` and `#/integration-demo/patient-portal`, with shared navigation back to the overview. Existing dashboard, patient-detail, print, and portal bookmarks redirect to the new locations, preserving query parameters.
 
-The main navigation contains Home, Insurer, Value Calculator, and MTM + RPM Demo. The header logo and eligibility options have been removed; old eligibility bookmarks return to Home. Version 2.6.0 changes presentation and navigation only. Calculator equations, evidence inputs, and browser-local RPM records retain their existing behavior.
+The main navigation contains Home, Simulation, Insurer, Value Calculator, and MTM + RPM Demo. The header logo and eligibility options have been removed; old eligibility bookmarks return to Home. Version 2.7.0 adds the recruitment microsimulation. Existing calculator equations, evidence inputs, and browser-local RPM records retain their behavior.
+
+## Recruitment microsimulation
+
+**Simulation** opens a paired patient-level model of physician referral and MTM-based RPM recruitment. The same synthetic IDs appear in a physician room and a pharmacy as alternative scenarios. Playback reveals conditional review/referral/offer decisions and RPM initiation (at least one transmitted BP reading); it does not represent appointment duration or calendar time. Play, pause, step, finish the cohort, inspect completed IDs, or edit inputs and restart. Playback and inspection never redraw outcomes or double-count patients.
+
+No study patient data have been collected or fitted. Starting values combine transferred literature benchmarks and explicit investigator assumptions. The recruitment model does not estimate clinical benefits, costs, or savings, and remains separate from the budget calculator. Larger synthetic cohorts and repeated seeds do not add empirical evidence.
+
+Finish a run to export patient-level CSV and replayable JSON. JSON includes inputs, seed, model version, metadata, evidence limitations, records, and analytic expectations. **Load JSON run** verifies an exported run before replaying it. For independent verification, run `node scripts/replayRecruitment.js /path/to/export.json` with Node.js 20 or later; no dependencies are needed. Retain the matching model source with archived exports. Read the [methods, equations, and evidence](docs/recruitment-microsimulation.md) and [generated-art provenance](docs/simulation-assets.md).
 
 ## Current calculator scope
 
@@ -16,7 +24,7 @@ The existing calculator asks: **Can deprescribing savings offset the added costs
 
 The primary endpoint is one-year combined-program net budget impact per member per month (PMPM), across all covered members. Three-year projections are secondary. Positive net impact means added cost; negative means modeled savings. The calculator displays program costs, drug and cardiovascular cost offsets, workload, implementation break-even, and a result excluding cardiovascular savings.
 
-The community-pharmacy versus integrated-clinic comparison is outside the current calculator. Its historical source and [provider model documentation](docs/provider-feasibility-model.md) are retained for reproducibility. The revised endpoint-plan methods—comparing physician referral with MTM-based RPM recruitment—and a patient-level microsimulation have **not** been implemented. Word documents and the AMCP abstract are not included in this repository.
+The community-pharmacy versus integrated-clinic comparison is outside the current calculator. Its historical source and [provider model documentation](docs/provider-feasibility-model.md) are retained for reproducibility. The recruitment microsimulation is a separate study-planning module at `#/simulation`; it does not feed outcomes into this budget calculator. Word documents and the AMCP abstract are not included in this repository.
 
 ## Try the demo
 

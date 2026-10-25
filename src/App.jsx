@@ -13,6 +13,7 @@ import PrintSummary from './pages/PrintSummary'
 import PatientPortal from './pages/PatientPortal'
 import InsurerDashboard from './pages/InsurerDashboard'
 import ValueCalculator from './pages/ValueCalculator'
+import RecruitmentSimulation from './pages/RecruitmentSimulation'
 
 function LegacyDemoRedirect({ to }) {
   const { '*': rest } = useParams()
@@ -39,6 +40,7 @@ export default function App() {
           <main className="flex-1">
             <Routes>
               <Route path="/" element={<Landing />} />
+              <Route path="/simulation" element={<RecruitmentSimulation />} />
               <Route path="/integration-demo" element={<IntegrationDemoLayout />}>
                 <Route index element={<IntegrationDemo />} />
                 <Route path="dashboard" element={<Dashboard />} />

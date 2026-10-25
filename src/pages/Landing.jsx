@@ -136,8 +136,9 @@ export default function Landing() {
           <div className="mt-8 rounded-2xl bg-brand-50 border border-brand-200 p-6">
             <h3 className="font-bold text-brand-800 mb-2">Explore the current tools</h3>
             <p className="text-sm text-brand-800 leading-relaxed">
-              The Value Calculator currently compares budget scenarios for deprescribing, RPM, and their combination. The recruitment comparison shown above is the planned study model. All calculated results depend on stated assumptions and represent modeled estimates, not observed patient outcomes.
+              The interactive microsimulation applies both recruitment pathways to the same synthetic cohort and shows referral decisions and first BP transmissions. Its planning inputs combine transferred literature benchmarks with explicit assumptions; no study patient data have been collected. The Value Calculator separately explores budget scenarios for deprescribing and RPM.
             </p>
+            <Link to="/simulation" className="btn-primary inline-flex mt-5">Explore the Microsimulation →</Link>
           </div>
         </div>
       </section>
