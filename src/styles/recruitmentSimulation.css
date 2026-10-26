@@ -119,3 +119,81 @@
 @media(max-width:760px) { .sim-shell { padding:27px 16px 40px; } .sim-workspace { grid-template-columns:1fr; } .sim-cohort-panel { margin-top:5px; } .sim-step-bar li span { display:inline; } .sim-toolbar { padding:16px; } .sim-speed { margin-left:0; } .sim-room-heading { padding:13px 16px; } .sim-decision-row { padding:13px 16px; } .sim-card { padding:20px 16px; } .sim-evidence-grid { grid-template-columns:1fr; gap:22px; } .sim-register-header, .sim-register button { grid-template-columns:1fr 1fr 1fr; } .sim-cohort-panel .sim-running-counts { padding:17px; } .sim-input-grid { gap:20px 14px; } .sim-section-heading h2 { font-size:22px; } }
 @media(max-width:420px) { .sim-step-bar { align-items:flex-start; } .sim-step-bar ol { gap:8px; } .sim-step-bar li { font-size:9px; } .sim-scene-caption { font-size:8px; padding:3px 5px; bottom:5px; left:7px; } .sim-character>span { font-size:8px; top:-12px; } .sim-room-heading h2 { font-size:17px; } .sim-decision-row strong { font-size:13px; } .sim-input-grid { grid-template-columns:1fr; } .sim-button { font-size:11px; padding:9px 10px; } }
 @media(prefers-reduced-motion:reduce) { .sim-character { transition:none; } }
+
+/* Integrated study journey: current care stays in the background. */
+.recruitment-sim .sim-applied-context { display:block; margin-top:7px; font-size:11px; font-weight:600; color:#325a65; }
+.recruitment-sim .sim-progress-heading { flex-wrap:wrap; gap:8px; }
+.recruitment-sim .sim-journey-steps { align-items:flex-start; flex-direction:column; gap:10px; }
+.recruitment-sim .sim-journey-steps ol { flex-wrap:wrap; gap:12px; }
+.recruitment-sim .sim-journey-steps li { font-size:11px; }
+.recruitment-sim .sim-journey-steps li span { display:inline; }
+.recruitment-sim .sim-usual-care { display:grid; grid-template-columns:210px minmax(0,1fr); background:#fff; border:1px solid #d5e0eb; border-radius:12px; overflow:hidden; margin-bottom:16px; }
+.recruitment-sim .sim-context-scene { position:relative; background-size:100% 200%; background-position:top; image-rendering:pixelated; aspect-ratio:3/1; align-self:center; }
+.recruitment-sim .sim-context-scene img { position:absolute; height:67%; width:24%; object-fit:contain; left:8%; bottom:5%; image-rendering:pixelated; }
+.recruitment-sim .sim-context-scene span { position:absolute; left:9%; top:10%; font:700 9px ui-monospace,monospace; color:#fff; background:#244660; padding:2px 4px; border-radius:3px; }
+.recruitment-sim .sim-context-copy { padding:15px 16px; }
+.recruitment-sim .sim-context-copy .sim-eyebrow { font-size:9px; letter-spacing:.08em; }
+.recruitment-sim .sim-context-copy h2 { font-weight:700; font-size:15px; line-height:1.4; margin:6px 0 11px; color:#28486b; }
+.recruitment-sim .sim-context-copy dl { display:flex; gap:15px; flex-wrap:wrap; }
+.recruitment-sim .sim-context-copy dt { font-size:10px; color:#607086; }
+.recruitment-sim .sim-context-copy dd { font-size:12px; color:#294965; font-weight:700; margin-top:2px; }
+.recruitment-sim .sim-integration-room { border-top:3px solid #168b84; }
+.recruitment-sim .sim-phase-content { padding:22px; }
+.recruitment-sim .sim-phase-content h3 { color:#1e4f60; font-size:20px; line-height:1.3; font-weight:750; margin:7px 0 9px; }
+.recruitment-sim .sim-phase-content>p { color:#607086; font-size:12px; line-height:1.7; max-width:680px; }
+.recruitment-sim .sim-phase-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px 24px; margin-top:22px; padding-top:18px; border-top:1px solid #e1e9ef; }
+.recruitment-sim .sim-phase-fields dt { color:#607086; font-size:11px; line-height:1.5; }
+.recruitment-sim .sim-phase-fields dd { color:#254c65; font-size:16px; font-weight:700; margin-top:5px; overflow-wrap:anywhere; }
+.recruitment-sim .sim-integration-register, .recruitment-sim .sim-integration-register-list button { grid-template-columns:74px minmax(0,1fr); }
+.recruitment-sim .sim-integration-register-list button { min-height:45px; font-size:11px; }
+.recruitment-sim .sim-cohort-panel { margin-top:0; }
+.recruitment-sim .sim-running-counts>div { align-items:flex-start; gap:12px; }
+.recruitment-sim .sim-running-counts>div>span { line-height:1.5; }
+.recruitment-sim .sim-running-counts .sim-not-estimated { font-size:12px; line-height:1.5; text-align:right; }
+.recruitment-sim .sim-inspection-summary { padding:20px 22px; background:#fff; border:1px solid #dce6ec; border-radius:12px; margin-top:15px; }
+.recruitment-sim .sim-inspection-summary h3 { font-size:15px; font-weight:700; color:#315477; margin-bottom:12px; }
+.recruitment-sim .sim-inspection-summary dl { display:grid; gap:10px; }
+.recruitment-sim .sim-inspection-summary dl>div { display:grid; grid-template-columns:120px minmax(0,1fr); gap:12px; }
+.recruitment-sim .sim-inspection-summary dt { color:#607086; font-size:12px; }
+.recruitment-sim .sim-inspection-summary dd { color:#31516e; font-size:12px; font-weight:600; overflow-wrap:anywhere; }
+.recruitment-sim .sim-financial-result { padding:22px 0 25px; border-top:1px solid #e0e8f0; border-bottom:1px solid #e0e8f0; }
+.recruitment-sim .sim-financial-result>span { display:block; color:#526c85; font-size:13px; font-weight:600; }
+.recruitment-sim .sim-financial-result>strong { display:block; font-size:clamp(24px,3vw,38px); color:#235475; font-weight:800; margin:7px 0 9px; font-variant-numeric:tabular-nums; }
+.recruitment-sim .sim-financial-result>p, .recruitment-sim .sim-incomplete-result { font-size:12px; line-height:1.7; color:#607086; }
+.recruitment-sim .sim-outcome-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:24px; padding:25px 0 6px; }
+.recruitment-sim .sim-outcome-summary dt { font-size:11px; line-height:1.6; color:#607086; }
+.recruitment-sim .sim-outcome-summary dd { font-size:20px; font-weight:750; color:#2b516e; margin-top:8px; overflow-wrap:anywhere; }
+.recruitment-sim .sim-shared-model { display:flex; gap:30px; justify-content:space-between; align-items:center; }
+.recruitment-sim .sim-shared-model h2 { font-size:22px; color:#294767; letter-spacing:-.025em; font-weight:750; margin:8px 0 12px; }
+.recruitment-sim .sim-shared-model p { max-width:780px; font-size:12px; line-height:1.75; color:#607086; margin-top:9px; }
+.recruitment-sim .sim-shared-links { display:flex; flex-direction:column; align-items:flex-start; gap:17px; flex-shrink:0; }
+.recruitment-sim a.sim-button { display:inline-flex; align-items:center; justify-content:center; text-align:center; text-decoration:none; }
+@media(max-width:1050px) {
+  .recruitment-sim .sim-usual-care { grid-template-columns:150px minmax(0,1fr); }
+  .recruitment-sim .sim-context-copy { padding:12px; }
+  .recruitment-sim .sim-context-copy dl { gap:10px; }
+  .recruitment-sim .sim-outcome-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .recruitment-sim .sim-shared-model { align-items:flex-start; flex-direction:column; gap:20px; }
+  .recruitment-sim .sim-shared-links { flex-direction:row; flex-wrap:wrap; align-items:center; }
+}
+@media(max-width:760px) {
+  .recruitment-sim .sim-usual-care { grid-template-columns:150px minmax(0,1fr); }
+  .recruitment-sim .sim-phase-content { padding:20px 16px; }
+  .recruitment-sim .sim-phase-content h3 { font-size:18px; }
+  .recruitment-sim .sim-inspection-summary { padding:18px 16px; }
+}
+@media(max-width:480px) {
+  .recruitment-sim .sim-usual-care { grid-template-columns:1fr; }
+  .recruitment-sim .sim-context-scene { max-width:210px; width:100%; margin:12px auto 0; }
+  .recruitment-sim .sim-context-copy { padding:14px 16px; }
+  .recruitment-sim .sim-context-copy dl { gap:12px; }
+  .recruitment-sim .sim-journey-steps li span { display:none; }
+  .recruitment-sim .sim-journey-steps li { font-size:11px; }
+  .recruitment-sim .sim-phase-fields { grid-template-columns:1fr; gap:15px; }
+  .recruitment-sim .sim-phase-fields dd { font-size:15px; }
+  .recruitment-sim .sim-scene-caption { font-size:10px; max-width:calc(100% - 14px); }
+  .recruitment-sim .sim-inspection-summary dl>div { grid-template-columns:1fr; gap:3px; }
+  .recruitment-sim .sim-outcome-summary { gap:20px 15px; }
+  .recruitment-sim .sim-outcome-summary dd { font-size:17px; }
+  .recruitment-sim .sim-shared-links { flex-direction:column; align-items:flex-start; }
+}

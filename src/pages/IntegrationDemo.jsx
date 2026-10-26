@@ -72,7 +72,7 @@ export default function IntegrationDemo() {
           ))}
         </div>
         <div className="mt-8 rounded-2xl bg-teal-50 border border-teal-200 p-6 flex flex-col sm:flex-row sm:items-center gap-5">
-          <div className="flex-1"><h2 className="font-bold text-teal-900 mb-2">Follow a synthetic patient through the study</h2><p className="text-sm text-teal-800 leading-relaxed">Explore physician referral and MTM-based RPM recruitment with paired patient IDs, editable assumptions, and reproducible simulated decisions.</p></div>
+          <div className="flex-1"><h2 className="font-bold text-teal-900 mb-2">Follow a synthetic patient through the study</h2><p className="text-sm text-teal-800 leading-relaxed">Follow added pharmacist recruitment, medication assessment, and financial contribution with synthetic patient IDs and the same assumptions as the study calculator.</p></div>
           <Link to="/simulation" className="btn-primary justify-center shrink-0">Open Microsimulation →</Link>
         </div>
         <div className="text-center mt-7">

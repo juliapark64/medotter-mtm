@@ -1,22 +1,12 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useEffect, useMemo, useReducer, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { DEFAULT_RECRUITMENT_INPUTS, simulateRecruitment, summarizeRecruitment, validateRecruitmentInputs, createRecruitmentExport, verifyRecruitmentExport } from '../lib/recruitmentSimulation'
+import { useIntegrationStudy } from '../context/IntegrationStudyContext'
 import rooms from '../assets/simulation/physician-pharmacy-rooms.png'
 import patientSprite from '../assets/simulation/synthetic-patient.png'
 import '../styles/recruitmentSimulation.css'
 
-const FIELDS = [
-  { key: 'N', label: 'Eligible cohort', unit: 'patients', min: 1, max: 10000, note: 'Common synthetic population for both pathways. Investigator choice.' },
-  { key: 'r', label: 'Physician referral', unit: '%', note: 'Of all eligible patients. 11.8% source benchmark; annual use is assumed.' },
-  { key: 'f', label: 'MTM review population', unit: '%', note: 'Of all eligible patients. 50% is an investigator assumption.' },
-  { key: 'c', label: 'Review completion', unit: '%', note: 'Of the MTM review population. 84% is transferred from PQA.' },
-  { key: 'o', label: 'RPM offered after review', unit: '%', note: 'Of completed reviews. 50% is an investigator assumption.' },
-  { key: 'qA', label: 'Uptake after physician referral', unit: '%', note: 'First BP transmission among referrals. 53% is a transferred reference.' },
-  { key: 'qB', label: 'Uptake after pharmacist offer', unit: '%', note: 'First BP transmission among offers. Equal 53% uptake is assumed.' },
-  { key: 'seed', label: 'Random seed', unit: 'seed', min: 0, max: 4294967295, note: 'Same inputs and seed reproduce the exact synthetic records.' },
-]
-const toDraft = inputs => Object.fromEntries(FIELDS.map(({ key, unit }) => [key, String(unit === '%' ? Number((inputs[key] * 100).toPrecision(12)) : inputs[key])]))
-const fromDraft = draft => Object.fromEntries(FIELDS.map(({ key, unit }) => [key, draft[key].trim() === '' ? NaN : unit === '%' ? Number((Number(draft[key]) / 100).toPrecision(12)) : Number(draft[key])]))
+const phaseLabels = ['MTM review', 'RPM offer & start', 'Monitoring', 'Medication reduction', 'Financial result']
+const LAST_PHASE = phaseLabels.length - 1
 const initialPlayback = { cursor: 0, phase: 0, processed: 0, playing: false, inspection: null }
 function playbackReducer(state, action) {
   switch (action.type) {
@@ -25,135 +15,185 @@ function playbackReducer(state, action) {
     case 'pause': return { ...state, playing: false }
     case 'inspect': return { ...state, playing: false, inspection: action.index }
     case 'return': return { ...state, inspection: null }
-    case 'finish': return { ...state, cursor: action.N - 1, phase: 2, processed: action.N, inspection: null, playing: false }
+    case 'finish': return { ...state, cursor: action.N - 1, phase: LAST_PHASE, processed: action.N, inspection: null, playing: false }
     case 'advance': {
       if (state.inspection !== null) return { ...state, inspection: null }
-      if (state.phase < 2) {
+      if (state.phase < LAST_PHASE) {
         const phase = state.phase + 1
-        return { ...state, phase, processed: phase === 2 ? Math.max(state.processed, state.cursor + 1) : state.processed, playing: phase === 2 && state.cursor === action.N - 1 ? false : state.playing }
+        return { ...state, phase, processed: phase === LAST_PHASE ? Math.max(state.processed, state.cursor + 1) : state.processed, playing: phase === LAST_PHASE && state.cursor === action.N - 1 ? false : state.playing }
       }
       return state.cursor < action.N - 1 ? { ...state, cursor: state.cursor + 1, phase: 0 } : { ...state, playing: false }
     }
     default: return state
   }
 }
-const number = value => value.toLocaleString('en-US', { maximumFractionDigits: 2 })
-const signed = value => `${value > 0 ? '+' : ''}${number(value)}`
-const phaseLabels = ['Enter pathway', 'Referral decision', 'RPM initiation result']
 
-function referralDetail(patient, pharmacy) {
-  if (!pharmacy) return patient.physician.referred ? 'Physician referral made' : 'No referral this year'
-  const b = patient.pharmacist
-  if (!b.inReviewPopulation) return 'Outside the MTM review population'
-  if (!b.reviewCompleted) return 'Medication review not completed'
-  return b.offered ? 'Review completed · RPM offered' : 'Review completed · RPM not offered'
+const known = value => typeof value === 'number' && Number.isFinite(value)
+const number = value => known(value) ? value.toLocaleString('en-US', { maximumFractionDigits: 2 }) : 'Not estimated'
+const signed = value => known(value) ? `${value > 0 ? '+' : ''}${number(value)}` : 'Not estimated'
+const money = value => known(value) ? value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }) : 'Not estimated'
+const difference = (a, b) => known(a) && known(b) ? a - b : null
+const yesNo = value => value ? 'Yes' : 'No'
+
+function rpmStatus(patient) {
+  if (patient.existingRpm) return 'Existing RPM continues'
+  if (patient.baseline.newInitiation) return 'Starts through usual care'
+  if (patient.additionalInitiation) return 'Additional start through MTM'
+  return 'No RPM initiation'
 }
 
-function Room({ patient, pharmacy, phase }) {
-  const result = pharmacy ? patient.pharmacist : patient.physician
-  const encounter = !pharmacy || result.reviewCompleted
-  const moved = phase > 0 && encounter
+function reviewStatus(patient) {
+  if (!patient.pharmacist.inReviewPopulation) return 'Outside the MTM review population'
+  return patient.pharmacist.reviewCompleted ? 'MTM review completed' : 'MTM review not completed'
+}
+
+function offerStatus(patient) {
+  const p = patient.pharmacist
+  if (p.recontacted) return 'RPM offered after a usual referral did not lead to initiation'
+  if (p.duplicateOffer) return 'Offer overlaps the usual physician referral'
+  if (p.offered) return 'RPM offered'
+  if (!p.reviewCompleted) return 'No completed review for an RPM offer'
+  if (patient.baseline.participating) return 'Current-program RPM already available'
+  if (p.reasonForNoOffer === 'recontact-disabled') return 'Further contact after a usual referral is not modeled'
+  return 'RPM not offered'
+}
+
+function phaseContent(patient, phase, perspective, clinicalMode) {
+  const a = patient.baseline
+  const b = patient.integrated
+  switch (phase) {
+    case 0: return {
+      title: reviewStatus(patient),
+      note: 'The modeled MTM review can support recruitment or medication assessment for someone already receiving RPM.',
+      fields: [
+        ['In the review population', yesNo(patient.pharmacist.inReviewPopulation)],
+        ['Review completed', yesNo(patient.pharmacist.reviewCompleted)],
+      ],
+    }
+    case 1: return {
+      title: rpmStatus(patient),
+      note: 'A new start requires a first transmitted BP reading. A referral or an offer alone does not count as initiation.',
+      fields: [
+        ['Pharmacist RPM offer', offerStatus(patient)],
+        ['Additional RPM start', yesNo(patient.additionalInitiation)],
+      ],
+    }
+    case 2: return {
+      title: b.participating ? 'Monitoring contributes service months' : 'No RPM service in this realization',
+      note: 'These are modeled service-month totals for the budget year. Playback speed does not represent a clinical calendar.',
+      fields: [
+        ['Current program · active months', number(a.activeMonths)],
+        ['With MTM integration · active months', number(b.activeMonths)],
+        ['Added service months', signed(b.activeMonths - a.activeMonths)],
+        ['With MTM · reimbursement-qualified months', number(b.qualifiedMonths)],
+      ],
+    }
+    case 3: return {
+      title: clinicalMode === 'none' ? 'Medication benefits excluded in this scenario' : known(b.clinical.actions) ? 'Medication reductions under the applied assumptions' : 'Medication reduction is not yet estimated',
+      note: clinicalMode === 'none'
+        ? 'This conservative scenario explicitly sets medication reductions and drug savings to zero in both programs. This is a modeling assumption, not a finding about deprescribing effectiveness.'
+        : known(b.clinical.actions)
+        ? 'Synthetic medication events use the applied scenario assumptions. Persistence is assessed 12 months after reduction and can extend beyond the first-year budget.'
+        : 'The clinical inputs are unspecified. This patient is not assigned an invented reduction or an observed clinical benefit.',
+      fields: [
+        ['With MTM · active at the modeled assessment', yesNo(b.activeAtAssessment)],
+        ['Current program · medication reductions', number(a.clinical.actions)],
+        ['With MTM · medication reductions', number(b.clinical.actions)],
+        ['With MTM · maintained 12 months after reduction', number(b.clinical.sustainedAt12Months)],
+        ['With MTM · reduced-medication months in budget year', number(b.clinical.medicationMonths)],
+      ],
+    }
+    default: return {
+      title: 'This patient’s incremental financial contribution',
+      note: `With MTM integration minus the current program. These patient-level amounts exclude fixed cohort costs. ${perspective === 'clinic' ? 'Medication savings are shown separately and are not retained as clinic revenue.' : 'Net benefit includes retained medication savings when they are estimable.'}`,
+      fields: [
+        ['Additional program cost', money(b.programCost - a.programCost)],
+        ['Additional external revenue', money(b.revenue - a.revenue)],
+        ['Medication cost offset · before retained share', money(difference(b.drugSavings, a.drugSavings))],
+        ['Operating contribution · before medication savings', money(b.operatingMargin - a.operatingMargin)],
+        ['Net financial contribution', money(difference(b.netFinancialBenefit, a.netFinancialBenefit))],
+      ],
+    }
+  }
+}
+
+function UsualCareContext({ patient }) {
   return (
-    <article className={`sim-room ${pharmacy ? 'sim-room-pharmacy' : ''}`}>
+    <section className="sim-usual-care" aria-label="Current-program context for the selected patient">
+      <div className="sim-context-scene" style={{ backgroundImage: `url(${rooms})` }} aria-hidden="true">
+        <img src={patientSprite} alt="" /><span>{patient.id}</span>
+      </div>
+      <div className="sim-context-copy">
+        <span className="sim-eyebrow">CURRENT PROGRAM · CONTINUES WITH INTEGRATION</span>
+        <h2>Physician referral remains part of usual care</h2>
+        <dl>
+          <div><dt>RPM at baseline</dt><dd>{yesNo(patient.existingRpm)}</dd></div>
+          <div><dt>Usual physician referral</dt><dd>{yesNo(patient.physician.referred)}</dd></div>
+          <div><dt>RPM under current care</dt><dd>{yesNo(patient.baseline.participating)}</dd></div>
+        </dl>
+      </div>
+    </section>
+  )
+}
+
+function IntegrationJourney({ patient, phase, perspective, clinicalMode }) {
+  const content = phaseContent(patient, phase, perspective, clinicalMode)
+  return (
+    <article className="sim-room sim-room-pharmacy sim-integration-room">
       <header className="sim-room-heading">
-        <div><span className="sim-eyebrow">{pharmacy ? 'PATHWAY B · PHARMACY' : 'PATHWAY A · CLINIC'}</span><h2>{pharmacy ? 'Pharmacist referral' : 'Physician referral'}</h2></div>
+        <div><span className="sim-eyebrow">ADDED PHARMACIST INVOLVEMENT</span><h2>MTM + RPM integration</h2></div>
         <span className="sim-code">{patient.id}</span>
       </header>
       <div className="sim-scene" style={{ backgroundImage: `url(${rooms})` }} aria-hidden="true">
-        <div className={`sim-character ${moved ? 'sim-at-encounter' : ''}`} key={patient.id}>
+        <div className={`sim-character ${phase > 0 && patient.pharmacist.reviewCompleted ? 'sim-at-encounter' : ''}`} key={patient.id}>
           <span>{patient.id}</span><img src={patientSprite} alt="" />
         </div>
-        <span className="sim-scene-caption">{phase === 0 ? 'Synthetic patient enters this pathway' : referralDetail(patient, pharmacy)}</span>
+        <span className="sim-scene-caption">{phaseLabels[phase]} · {phase === 0 ? reviewStatus(patient) : phase === 1 ? rpmStatus(patient) : phase === 2 ? `${number(patient.integrated.activeMonths)} active service months` : phase === 3 ? 'Scenario-based medication assessment' : 'Incremental financial result'}</span>
       </div>
-      <div className="sim-decision-row">
-        <div><span className="sim-small-label">{pharmacy ? 'Pharmacist referral / RPM offer' : 'Physician referral'}</span><strong className={phase > 0 && result.referred ? 'sim-positive' : ''}>{phase === 0 ? 'Awaiting decision' : result.referred ? 'Yes' : 'No'}</strong><small>{phase === 0 ? 'Recruitment decision not yet revealed' : referralDetail(patient, pharmacy)}</small></div>
-        <div><span className="sim-small-label">RPM initiation</span><strong className={phase === 2 && result.initiated ? 'sim-positive' : ''}>{phase < 2 ? 'Pending' : result.initiated ? 'Yes · first BP sent' : 'No initiation'}</strong><small>{phase < 2 ? 'Result revealed at the next step' : result.initiated ? 'At least one BP reading transmitted' : result.referred ? 'Referred / offered, but no first transmission' : 'Referral gate not reached'}</small></div>
-      </div>
+      <section className="sim-phase-content" aria-labelledby="sim-phase-title">
+        <span className="sim-eyebrow">STEP {phase + 1} OF {phaseLabels.length}</span>
+        <h3 id="sim-phase-title">{content.title}</h3>
+        <p>{content.note}</p>
+        <dl className="sim-phase-fields">{content.fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+      </section>
     </article>
   )
 }
 
-function saveFile(filename, text, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }))
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+function summarizeProcessed(patients) {
+  return patients.reduce((totals, patient) => {
+    totals.addedStarts += Number(patient.additionalInitiation)
+    totals.addedMonths += patient.integrated.activeMonths - patient.baseline.activeMonths
+    const reductions = difference(patient.integrated.clinical.actions, patient.baseline.clinical.actions)
+    totals.addedReductions = known(totals.addedReductions) && known(reductions) ? totals.addedReductions + reductions : null
+    return totals
+  }, { addedStarts: 0, addedMonths: 0, addedReductions: 0 })
 }
 
-export default function RecruitmentSimulation() {
-  const [run, setRun] = useState(() => simulateRecruitment())
-  const [draft, setDraft] = useState(() => toDraft(DEFAULT_RECRUITMENT_INPUTS))
-  const [errors, setErrors] = useState({})
+function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
   const [playback, dispatch] = useReducer(playbackReducer, initialPlayback)
   const [speed, setSpeed] = useState('1')
-  const [notice, setNotice] = useState('')
   const [inspectId, setInspectId] = useState('')
-  const fileInput = useRef(null)
   const { processed, cursor, playing, inspection } = playback
-  const phase = inspection === null ? playback.phase : 2
+  const phase = inspection === null ? playback.phase : LAST_PHASE
   const selectedIndex = inspection ?? cursor
   const patient = run.patients[selectedIndex]
-  const complete = processed === run.inputs.N
-  const progress = processed / run.inputs.N * 100
-  const changed = JSON.stringify(draft) !== JSON.stringify(toDraft(run.inputs))
-  const visibleSummary = useMemo(() => processed ? summarizeRecruitment(run.patients.slice(0, processed)) : null, [run, processed])
-  const queueStart = Math.min(Math.max(0, selectedIndex - 3), Math.max(0, run.inputs.N - 8))
+  const complete = processed === inputs.N
+  const visibleSummary = useMemo(() => summarizeProcessed(run.patients.slice(0, processed)), [run, processed])
+  const queueStart = Math.min(Math.max(0, selectedIndex - 3), Math.max(0, inputs.N - 8))
+  const selectedContent = phaseContent(patient, phase, inputs.perspective, inputs.clinicalMode)
 
   useEffect(() => {
     if (!playing) return undefined
-    const timer = setTimeout(() => dispatch({ type: 'advance', N: run.inputs.N }), 1500 / Number(speed))
+    const timer = setTimeout(() => dispatch({ type: 'advance', N: inputs.N }), 1500 / Number(speed))
     return () => clearTimeout(timer)
-  }, [playing, cursor, playback.phase, speed, run.inputs.N])
+  }, [playing, cursor, playback.phase, speed, inputs.N])
   useEffect(() => {
     const pauseIfHidden = () => { if (document.hidden) dispatch({ type: 'pause' }) }
     document.addEventListener('visibilitychange', pauseIfHidden)
     return () => document.removeEventListener('visibilitychange', pauseIfHidden)
   }, [])
 
-  const loadRun = next => {
-    setRun(next)
-    setDraft(toDraft(next.inputs))
-    setErrors({})
-    setInspectId('')
-    dispatch({ type: 'reset' })
-  }
-  const applyInputs = event => {
-    event.preventDefault()
-    const inputs = fromDraft(draft)
-    const validation = validateRecruitmentInputs(inputs)
-    setErrors(validation)
-    if (Object.keys(validation).length) { setNotice('Check the highlighted inputs. The current run has not changed.'); return }
-    loadRun(simulateRecruitment(inputs))
-    setNotice('New cohort generated. Play or step through the two pathways.')
-  }
-  const exportJson = () => {
-    try {
-      const bundle = createRecruitmentExport(run)
-      saveFile(`rpm-recruitment-seed-${run.inputs.seed}.json`, JSON.stringify(bundle, null, 2), 'application/json')
-      setNotice('JSON exported with all patient records, inputs, seed, model version, and sources.')
-    } catch (error) { setNotice(`Export failed: ${error.message}`) }
-  }
-  const exportCsv = () => {
-    createRecruitmentExport(run)
-    const header = 'patient_id,physician_referred,physician_initiated,mtm_population,review_completed,rpm_offered,pharmacist_initiated,pharmacist_no_referral_reason'
-    const rows = run.patients.map(p => [p.id, p.physician.referred, p.physician.initiated, p.pharmacist.inReviewPopulation, p.pharmacist.reviewCompleted, p.pharmacist.offered, p.pharmacist.initiated, p.pharmacist.reasonForNoReferral ?? ''].join(','))
-    saveFile(`rpm-recruitment-seed-${run.inputs.seed}.csv`, [header, ...rows].join('\n'), 'text/csv;charset=utf-8')
-    setNotice('Patient CSV exported. Keep the JSON export with it to preserve the model assumptions.')
-  }
-  const importJson = async event => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-    dispatch({ type: 'pause' })
-    try {
-      if (file.size > 16 * 1024 * 1024) throw new Error('File exceeds the 16 MB limit.')
-      const bundle = verifyRecruitmentExport(JSON.parse(await file.text()))
-      loadRun(simulateRecruitment(bundle.inputs))
-      setNotice('Verified JSON run loaded. Playback starts at the first patient with identical outcomes.')
-    } catch (error) { setNotice(`Could not load this run: ${error.message}`) }
-  }
   const inspectPatient = event => {
     event.preventDefault()
     const index = /^S?\d+$/i.test(inspectId.trim()) ? Number(inspectId.trim().replace(/^S/i, '')) - 1 : -1
@@ -161,79 +201,81 @@ export default function RecruitmentSimulation() {
     dispatch({ type: 'inspect', index })
     setNotice(`Inspecting ${run.patients[index].id}. The cohort counts are unchanged.`)
   }
+  const newSeed = () => {
+    try {
+      applyInputs({ ...inputs, seed: (inputs.seed + 1) >>> 0 })
+      setNotice('New seed applied to the shared study scenario. The calculator and patient simulation use this same cohort.')
+    } catch (error) { setNotice(`Could not start a new run: ${error.message}`) }
+  }
 
   return (
     <div className="recruitment-sim">
       <div className="sim-shell">
         <header className="sim-title-row">
-          <div><span className="sim-eyebrow">STUDY EXPLORER · RECRUITMENT MICROSIMULATION</span><h1>Two pathways. <span>One synthetic cohort.</span></h1><p>Follow each patient from a referral opportunity to their first transmitted blood pressure reading.</p></div>
-          <Link to="/integration-demo" className="sim-text-link">Explore the care workflow ↗</Link>
+          <div><span className="sim-eyebrow">STUDY EXPLORER · PATIENT-LEVEL MICROSIMULATION</span><h1>Pharmacist integration <span>in action.</span></h1><p>Follow the added MTM work from recruitment and monitoring to medication reductions and its financial contribution.</p></div>
+          <Link to="/calculator" className="sim-text-link">Shared assumptions & calculator ↗</Link>
         </header>
-        <div className="sim-study-note"><strong>Study prototype · no collected patient data.</strong> The rooms illustrate alternative pathways for the same patient ID. Inputs combine transferred literature benchmarks and investigator assumptions. RPM initiation here means a first BP transmission, not administrative enrollment.</div>
+        <div className="sim-study-note"><strong>Synthetic study model · no collected patient data.</strong> The current program continues. Each record compares current care with adding pharmacist involvement; the rooms illustrate one integrated workflow. Clinical and financial results depend on the shared assumptions.<span className="sim-applied-context">Applied perspective: {inputs.perspective === 'clinic' ? 'clinic' : 'consolidated integrated system'} · Deprescribing: {inputs.clinicalMode === 'none' ? 'zero clinical effects assumed' : inputs.clinicalMode === 'unestimated' ? 'not estimated' : 'illustrative assumptions'}</span></div>
 
         <section className="sim-toolbar" aria-label="Simulation playback">
           <div className="sim-control-buttons">
-            <button className="sim-button sim-button-primary" onClick={() => dispatch({ type: playing ? 'pause' : 'play', N: run.inputs.N })}>{playing ? 'Ⅱ Pause' : complete ? '↻ Replay all' : '▶ Play simulation'}</button>
-            <button className="sim-button" disabled={complete && inspection === null} onClick={() => { dispatch({ type: 'pause' }); dispatch({ type: 'advance', N: run.inputs.N }) }}>Next step →</button>
-            <button className="sim-button" disabled={complete} onClick={() => dispatch({ type: 'finish', N: run.inputs.N })}>Finish run</button>
-            <button className="sim-button sim-button-quiet" onClick={() => dispatch({ type: 'reset' })}>Rewind</button>
+            <button type="button" className="sim-button sim-button-primary" onClick={() => dispatch({ type: playing ? 'pause' : 'play', N: inputs.N })}>{playing ? 'Ⅱ Pause' : complete ? '↻ Replay all' : '▶ Play simulation'}</button>
+            <button type="button" className="sim-button" disabled={complete && inspection === null} onClick={() => { dispatch({ type: 'pause' }); dispatch({ type: 'advance', N: inputs.N }) }}>Next step →</button>
+            <button type="button" className="sim-button" disabled={complete} onClick={() => dispatch({ type: 'finish', N: inputs.N })}>Finish run</button>
+            <button type="button" className="sim-button sim-button-quiet" onClick={() => dispatch({ type: 'reset' })}>Rewind</button>
+            <button type="button" className="sim-button sim-button-quiet" onClick={newSeed}>New seed</button>
             <label className="sim-speed">Speed <select value={speed} onChange={event => setSpeed(event.target.value)}><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
           </div>
-          <div className="sim-progress-heading"><span><strong>{number(processed)}</strong> / {number(run.inputs.N)} patients processed</span><span>Seed <strong>{run.inputs.seed}</strong></span></div>
-          <progress value={processed} max={run.inputs.N} aria-label="Patients processed">{number(progress)}%</progress>
-          <p className="sim-playback-note">Playback shows model steps, not elapsed clinical time. Both pathways finish together for each patient.</p>
+          <div className="sim-progress-heading"><span><strong>{number(processed)}</strong> / {number(inputs.N)} patients processed</span><span>Seed <strong>{inputs.seed}</strong></span></div>
+          <progress value={processed} max={inputs.N} aria-label="Patients processed">{number(processed / inputs.N * 100)}%</progress>
+          <p className="sim-playback-note">Playback advances through model steps, not clinical months. A patient enters cumulative counts only after the financial-result step.</p>
         </section>
 
         <div className="sim-workspace">
-          <section className="sim-theater" aria-label="Paired patient pathways">
-            <div className="sr-only" role="status" aria-live={playing ? 'off' : 'polite'} aria-atomic="true">{patient.id}. {phaseLabels[phase]}. {phase > 0 ? `Physician pathway: ${referralDetail(patient, false)}. Pharmacist pathway: ${referralDetail(patient, true)}.` : ''} {phase === 2 ? `RPM initiation: physician ${patient.physician.initiated ? 'yes' : 'no'}; pharmacist ${patient.pharmacist.initiated ? 'yes' : 'no'}.` : ''} {processed} of {run.inputs.N} patients processed.{complete ? ` Run complete. Total initiations: physician ${run.summary.physician.initiated}; pharmacist ${run.summary.pharmacist.initiated}.` : ''}</div>
-            <div className="sim-step-bar"><span>{inspection !== null ? `INSPECTING ${patient.id}` : `PATIENT ${patient.id}`}</span><ol>{phaseLabels.map((label, index) => <li key={label} className={index === phase ? 'sim-active-step' : ''}><b>{index + 1}</b><span>{label}</span></li>)}</ol></div>
-            {inspection !== null && <div className="sim-inspection-note">Completed patient · counts are unchanged. <button onClick={() => dispatch({ type: 'return' })}>Return to playback →</button></div>}
-            <Room patient={patient} phase={phase} />
-            <div className="sim-paired-divider"><span>Same ID · alternative scenario</span></div>
-            <Room patient={patient} pharmacy phase={phase} />
+          <section className="sim-theater" aria-label="Pharmacist integration journey">
+            <div className="sr-only" role="status" aria-live={playing ? 'off' : 'polite'} aria-atomic="true">{patient.id}. {phaseLabels[phase]}. {selectedContent.title}. {selectedContent.fields.map(([label, value]) => `${label}: ${value}.`).join(' ')} {processed} of {inputs.N} patients processed.{complete ? ` Run complete. Additional RPM starts: ${run.actual.delta.newInitiations}.` : ''}</div>
+            <div className="sim-step-bar sim-journey-steps"><span>{inspection !== null ? `INSPECTING ${patient.id}` : `PATIENT ${patient.id}`}</span><ol>{phaseLabels.map((label, index) => <li key={label} className={index === phase ? 'sim-active-step' : ''} aria-current={index === phase ? 'step' : undefined}><b>{index + 1}</b><span>{label}</span></li>)}</ol></div>
+            {inspection !== null && <div className="sim-inspection-note">Completed patient · counts are unchanged. <button type="button" onClick={() => dispatch({ type: 'return' })}>Return to playback →</button></div>}
+            <UsualCareContext patient={patient} />
+            <IntegrationJourney patient={patient} phase={phase} perspective={inputs.perspective} clinicalMode={inputs.clinicalMode} />
+            {inspection !== null && <section className="sim-inspection-summary" aria-label="Completed patient journey"><h3>Journey for {patient.id}</h3><dl><div><dt>Review</dt><dd>{reviewStatus(patient)}</dd></div><div><dt>RPM</dt><dd>{rpmStatus(patient)}</dd></div><div><dt>Monitoring</dt><dd>{number(patient.integrated.activeMonths)} active service months with integration</dd></div><div><dt>Medication reductions</dt><dd>{number(patient.baseline.clinical.actions)} current program → {number(patient.integrated.clinical.actions)} with integration</dd></div></dl></section>}
           </section>
 
           <aside className="sim-cohort-panel" aria-label="Synthetic patient cohort">
-            <div className="sim-panel-heading"><span className="sim-eyebrow">SYNTHETIC COHORT</span><h2>Patient register</h2><p>Track IDs through both pathways.</p></div>
-            <div className="sim-register-header"><span>Patient</span><span>Physician</span><span>Pharmacist</span></div>
-            <ol className="sim-register">{run.patients.slice(queueStart, queueStart + 8).map((p, offset) => {
+            <div className="sim-panel-heading"><span className="sim-eyebrow">SYNTHETIC COHORT</span><h2>Patient register</h2><p>Same IDs in the shared study scenario.</p></div>
+            <div className="sim-register-header sim-integration-register"><span>Patient</span><span>RPM outcome</span></div>
+            <ol className="sim-register sim-integration-register-list">{run.patients.slice(queueStart, queueStart + 8).map((p, offset) => {
               const index = queueStart + offset
               const done = index < processed
-              return <li key={p.id}><button className={selectedIndex === index ? 'sim-selected-patient' : ''} disabled={!done} onClick={() => dispatch({ type: 'inspect', index })} aria-label={`Inspect ${p.id}${done ? `, physician ${p.physician.initiated ? 'initiated' : 'no initiation'}, pharmacist ${p.pharmacist.initiated ? 'initiated' : 'no initiation'}` : ', pending'}`}><code>{p.id}</code><span className={done && p.physician.initiated ? 'sim-register-yes' : ''}>{done ? p.physician.initiated ? 'RPM' : 'No RPM' : '—'}</span><span className={done && p.pharmacist.initiated ? 'sim-register-yes' : ''}>{done ? p.pharmacist.initiated ? 'RPM' : 'No RPM' : '—'}</span></button></li>
+              return <li key={p.id}><button type="button" className={selectedIndex === index ? 'sim-selected-patient' : ''} disabled={!done} onClick={() => dispatch({ type: 'inspect', index })} aria-label={`Inspect ${p.id}${done ? `, ${rpmStatus(p)}` : ', pending'}`}><code>{p.id}</code><span className={done && p.additionalInitiation ? 'sim-register-yes' : ''}>{done ? p.additionalInitiation ? 'Added MTM start' : p.baseline.participating ? 'Current-program RPM' : 'No RPM start' : 'Pending'}</span></button></li>
             })}</ol>
-            <p className="sim-register-help">RPM = first BP transmitted. Select a completed ID to inspect its decisions.</p>
+            <p className="sim-register-help">Select a completed ID to inspect its full journey. Inspection does not add the patient to the totals again.</p>
             <form className="sim-inspect-form" onSubmit={inspectPatient}><label htmlFor="inspect-patient">Find a completed patient</label><div><input id="inspect-patient" placeholder="e.g. S0001" value={inspectId} onChange={event => setInspectId(event.target.value)} /><button className="sim-button" disabled={!processed}>View</button></div></form>
-            <div className="sim-running-counts"><span className="sim-eyebrow">{complete ? 'COMPLETE RUN' : 'RPM STARTS SO FAR'}</span><div><span>Physician pathway</span><strong>{visibleSummary?.physician.initiated ?? 0}</strong></div><div><span>Pharmacist pathway</span><strong>{visibleSummary?.pharmacist.initiated ?? 0}</strong></div><div><span>Difference (B − A)</span><strong>{signed(visibleSummary?.difference.initiated ?? 0)}</strong></div><small>{complete ? 'One synthetic realization, not an observed study effect.' : 'Only processed patients are counted. Finish the run for full-cohort results.'}</small></div>
+            <div className="sim-running-counts"><span className="sim-eyebrow">{complete ? 'COMPLETE RUN · INCREMENTAL COUNTS' : 'PROCESSED PATIENTS ONLY'}</span><div><span>Additional RPM starts</span><strong>{number(visibleSummary.addedStarts)}</strong></div><div><span>Additional service months</span><strong>{signed(visibleSummary.addedMonths)}</strong></div><div><span>Additional medication reductions</span><strong className={!known(visibleSummary.addedReductions) ? 'sim-not-estimated' : ''}>{processed ? signed(visibleSummary.addedReductions) : '—'}</strong></div><small>{complete ? 'One synthetic realization. Additional outcomes are relative to the continuing current program.' : 'These are partial counts, not full-cohort annual rates. Financial totals include fixed costs only in the completed run.'}</small></div>
           </aside>
         </div>
 
-        <div role="status" className={`sim-status ${notice ? '' : 'sim-status-empty'}`}>{notice || 'Ready to explore the study model.'}</div>
+        <div role="status" className={`sim-status ${notice ? '' : 'sim-status-empty'}`}>{notice || 'The calculator and this simulation share the same applied inputs and synthetic cohort.'}</div>
 
-        <section className="sim-results sim-card" aria-labelledby="sim-results-heading">
-          <div className="sim-section-heading"><div><span className="sim-eyebrow">MODEL OUTPUTS</span><h2 id="sim-results-heading">Recruitment results</h2><p>{complete ? `Completed synthetic cohort · ${number(run.inputs.N)} eligible patients · seed ${run.inputs.seed}` : 'Full-cohort equation benchmarks are available now. Finish playback to reveal the complete simulated run.'}</p></div><div className="sim-export-buttons"><button className="sim-button" disabled={!complete} onClick={exportJson}>Export JSON run</button><button className="sim-button" disabled={!complete} onClick={exportCsv}>Patient CSV</button><button className="sim-button" onClick={() => fileInput.current?.click()}>Load JSON run</button><input ref={fileInput} type="file" accept=".json,application/json" className="sr-only" aria-label="Load exported simulation JSON" onChange={importJson} /></div></div>
-          <div className="sim-table-wrap"><table><caption className="sr-only">Full-cohort simulated counts and analytic expectations for the current applied inputs</caption><thead><tr><th>Recruitment endpoint</th><th>Physician pathway A</th><th>Pharmacist pathway B</th></tr></thead><tbody>
-            <tr><th>Referral / RPM offer · simulated</th><td>{complete ? number(run.summary.physician.referred) : 'Awaiting full run'}</td><td>{complete ? number(run.summary.pharmacist.offered) : 'Awaiting full run'}</td></tr>
-            <tr className="sim-key-result"><th>RPM initiations · simulated</th><td>{complete ? number(run.summary.physician.initiated) : 'Awaiting full run'}</td><td>{complete ? number(run.summary.pharmacist.initiated) : 'Awaiting full run'}</td></tr>
-            <tr><th>Initiations per 1,000 eligible · simulated</th><td>{complete ? number(run.summary.physician.initiatedPer1000) : '—'}</td><td>{complete ? number(run.summary.pharmacist.initiatedPer1000) : '—'}</td></tr>
-            <tr><th>Expected initiations · equation</th><td>{number(run.expected.physician.initiated)}</td><td>{number(run.expected.pharmacist.initiated)}</td></tr>
-            <tr><th>Equation</th><td><code>N × r × qA</code></td><td><code>N × f × c × o × qB</code></td></tr>
-          </tbody></table></div>
-          {complete && <div className="sim-result-detail"><strong>{signed(run.summary.difference.initiated)} RPM initiations (B − A)</strong><span>Pharmacist pathway: {number(run.summary.pharmacist.inReviewPopulation)} in the review population → {number(run.summary.pharmacist.reviewCompleted)} completed reviews → {number(run.summary.pharmacist.offered)} RPM offers → {number(run.summary.pharmacist.initiated)} first BP transmissions.</span></div>}
-          <p className="sim-footnote">Integer counts vary across seeds; equation values are expected counts under the same assumptions. Seed variation is not parameter uncertainty or a confidence interval. This model does not estimate blood pressure reduction, deprescribing, costs, or savings.</p>
+        <section className="sim-card sim-integration-results" aria-labelledby="sim-results-heading">
+          <div className="sim-section-heading"><div><span className="sim-eyebrow">ADDED VALUE OF PHARMACIST INTEGRATION</span><h2 id="sim-results-heading">The full-cohort result</h2><p>{complete ? `${number(inputs.N)} eligible members · one synthetic realization · seed ${inputs.seed}` : 'Finish the run to reveal the complete synthetic result, including fixed program costs.'}</p></div><Link to="/calculator" className="sim-button sim-button-primary">Open financial calculator →</Link></div>
+          {complete ? <>
+            <div className="sim-financial-result"><span>Incremental annual net financial benefit per 1,000 eligible members</span><strong>{money(run.actual.delta.netBenefitPer1000)}</strong><p>{known(run.actual.delta.netFinancialBenefit) ? `Cohort total: ${money(run.actual.delta.netFinancialBenefit)} for ${number(inputs.N)} eligible members. Positive means additional modeled benefit; negative means additional net spending.` : 'Clinical inputs remain unspecified. Program costs and operating margin are still available in the calculator.'}</p></div>
+            <dl className="sim-outcome-summary"><div><dt>Additional RPM starts</dt><dd>{number(run.actual.delta.newInitiations)}</dd></div><div><dt>Additional service months</dt><dd>{signed(run.actual.delta.activeMonths)}</dd></div><div><dt>Additional reductions maintained 12 months after reduction</dt><dd>{signed(run.actual.delta.clinical.sustainedAt12Months)}</dd></div><div><dt>Incremental operating margin · before medication savings</dt><dd>{money(run.actual.delta.operatingMargin)}</dd></div></dl>
+          </> : <p className="sim-incomplete-result">Patient outcomes appear as the simulation progresses. The calculator provides the expected cohort results and the same applied assumptions at any time.</p>}
+          <p className="sim-footnote">The annual financial result uses the modeled budget year. Twelve-month medication persistence can extend beyond that year. A synthetic realization is not an observed treatment effect, and changing the seed does not measure parameter uncertainty.</p>
         </section>
 
-        <section className="sim-card" aria-labelledby="sim-assumptions-heading">
-          <div className="sim-section-heading"><div><span className="sim-eyebrow">SCENARIO DESIGN</span><h2 id="sim-assumptions-heading">Change the assumptions</h2><p>The starting values are study planning inputs, not estimates from your own patient data.</p></div><span className={`sim-draft-badge ${changed ? 'sim-draft-changed' : ''}`}>{changed ? 'Unapplied changes' : 'Applied to this run'}</span></div>
-          <form onSubmit={applyInputs} noValidate><div className="sim-input-grid">{FIELDS.map(({ key, label, unit, note, min, max }) => <div className="sim-field" key={key}><label htmlFor={`sim-${key}`}>{label} <code>{key}</code></label><div className="sim-input-wrap"><input id={`sim-${key}`} type="number" min={min ?? 0} max={max ?? 100} step={unit === '%' ? 'any' : '1'} value={draft[key]} onChange={event => setDraft({ ...draft, [key]: event.target.value })} aria-invalid={Boolean(errors[key])} aria-describedby={`sim-${key}-note${errors[key] ? ` sim-${key}-error` : ''}`} /><span>{unit}</span></div><small id={`sim-${key}-note`}>{note}</small>{errors[key] && <span id={`sim-${key}-error`} className="sim-input-error">{unit === '%' ? 'Enter a percentage from 0 to 100.' : errors[key]}</span>}</div>)}</div><div className="sim-input-actions"><button className="sim-button sim-button-primary" type="submit">Apply inputs & restart</button><button className="sim-button" type="button" onClick={() => { loadRun(simulateRecruitment({ ...run.inputs, seed: (run.inputs.seed + 1) >>> 0 })); setNotice('New seed applied to the current run inputs. Playback has restarted.') }}>New seed, same inputs</button><button className="sim-button sim-button-quiet" type="button" onClick={() => { loadRun(simulateRecruitment()); setNotice('Study planning defaults restored.') }}>Restore defaults</button></div><p className="sim-footnote">Applying inputs restarts the cohort. Playback speed and inspection never change a patient's modeled result. New seed uses the applied inputs, not pending edits.</p></form>
+        <section className="sim-card sim-shared-model" aria-labelledby="sim-shared-heading">
+          <div><span className="sim-eyebrow">ONE SHARED STUDY MODEL</span><h2 id="sim-shared-heading">Assumptions, evidence, and reproducibility</h2><p>Set recruitment, monitoring, medication-reduction, and financial assumptions in the calculator. Both pages use the same cohort and seed. Unknown clinical inputs stay unestimated, and scenario choices remain distinct from published evidence.</p><p>Existing RPM participants and usual physician referrals remain in the current program. Additional pharmacist recruitment is counted only when it produces an extra RPM start. Medication outcomes compare the continuing program with added pharmacist involvement.</p></div>
+          <div className="sim-shared-links"><Link to="/calculator" className="sim-button">Review assumptions & exports →</Link><Link to="/integration-demo" className="sim-text-link">Explore the care workflow ↗</Link></div>
         </section>
-
-        <section className="sim-methods sim-card" aria-labelledby="sim-methods-heading"><div className="sim-section-heading"><div><span className="sim-eyebrow">EVIDENCE & INTERPRETATION</span><h2 id="sim-methods-heading">What is evidence, and what is assumed?</h2></div></div><div className="sim-evidence-grid">
-          <article><span className="sim-evidence-tag">Transferred benchmark</span><h3>Physician referral · 11.8%</h3><p>The source reports a mean physician-level referral rate across October 2020–October 2022. Treating 11.8% as a patient-level annual probability in this model is an investigator assumption.</p><a href="https://www.jmir.org/2025/1/e64933/" target="_blank" rel="noreferrer">UCSD referral study ↗</a></article>
-          <article><span className="sim-evidence-tag">Transferred benchmark</span><h3>MTM review completion · 84%</h3><p>The MA-PD CMR completion reference concerns a defined MTM program population. We apply it only after the assumed share entering the review population, not to every RPM-eligible patient.</p><a href="https://www.pqa.org/wp-content/uploads/2025/10/PQA-QuIRC-MTM-Report.pdf" target="_blank" rel="noreferrer">PQA report, page 4 ↗</a></article>
-          <article><span className="sim-evidence-tag">Transfer + equality assumption</span><h3>First BP transmission · 53%</h3><p>The UCSD manuscript describes uptake after referral as at least one transmission. Applying it to both pathways and to this recruitment year is assumed; equal uptake is not an observed MTM finding.</p><a href="https://pages.ucsd.edu/~yfadlon/pdfs/Digital_Health.pdf" target="_blank" rel="noreferrer">UCSD manuscript, §6.2 ↗</a></article>
-        </div><details><summary>Model structure and reproducibility</summary><p>Each synthetic patient has five seeded random draws: physician referral, entry to the MTM review population, review completion, RPM offer, and initiation. The initiation draw is shared across the two alternative pathways as a variance-reduction assumption. Other stage draws are independent. Each stage has one opportunity; the rooms do not impose a clinical visit schedule.</p><p>The common cohort is RPM-eligible by construction. No real patient profiles, demographics, risk heterogeneity, repeat outreach, or staffing constraints have been measured or fitted. The 50% MTM population share, 50% RPM offer rate, cohort size, and seed are investigator choices. A larger synthetic cohort does not strengthen the underlying evidence.</p><p>Export JSON preserves all inputs, patient records, model version, source notes, and expected results. Loading a JSON run verifies exact reproduction before showing it. Patient CSV is a companion table; retain its JSON for the scenario assumptions.</p><a href="https://github.com/juliapark64/medotter-mtm/blob/main/docs/recruitment-microsimulation.md" target="_blank" rel="noreferrer">Read model methods and replay instructions ↗</a></details></section>
       </div>
     </div>
   )
+}
+
+export default function RecruitmentSimulation() {
+  const study = useIntegrationStudy()
+  return <IntegrationPlayback key={JSON.stringify(study.inputs)} {...study} />
 }

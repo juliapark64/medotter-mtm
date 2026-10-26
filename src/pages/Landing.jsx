@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom'
 const STUDY_QUESTIONS = [
   {
     step: '01',
-    title: 'Compare entry pathways',
-    desc: 'How might physician referral and MTM-based recruitment reach members of the same RPM-eligible population?',
+    title: 'Expand RPM participation',
+    desc: 'How many additional people could start RPM when pharmacists add recruitment through medication review?',
   },
   {
     step: '02',
-    title: 'Follow participation',
-    desc: 'How many members would begin RPM with a first transmitted blood pressure reading during the recruitment year?',
+    title: 'Support deprescribing',
+    desc: 'Could added review help appropriately reduce medications for existing and newly recruited RPM participants?',
   },
   {
     step: '03',
@@ -18,21 +18,21 @@ const STUDY_QUESTIONS = [
   },
   {
     step: '04',
-    title: 'Examine budget impact',
-    desc: 'How would program costs and potential medication cost offsets change under different evidence-informed assumptions?',
+    title: 'Estimate added financial return',
+    desc: 'Do retained collections and medication savings cover the added program costs under the selected assumptions?',
   },
 ]
 
 const PATHWAYS = [
   {
-    title: 'Physician referral',
-    description: 'The comparison pathway begins with referral from a physician.',
-    steps: ['RPM-eligible members', 'Physician referral', 'First transmitted BP reading'],
+    title: 'Current RPM program',
+    description: 'Existing RPM participants and usual physician referrals establish the starting program.',
+    steps: ['Existing participants continue', 'Usual physician referrals', 'Unique new RPM starts', 'Current program costs and outcomes'],
   },
   {
-    title: 'MTM-based recruitment',
-    description: 'The study pathway explores offering RPM through a completed medication review.',
-    steps: ['RPM-eligible members', 'MTM review population', 'Completed medication review', 'RPM offer', 'First transmitted BP reading'],
+    title: 'With pharmacist integration',
+    description: 'The same program adds pharmacist recruitment and appropriate medication reduction.',
+    steps: ['Usual referrals continue', 'MTM review and RPM offers', 'Additional starts and medication assessment', 'Added financial surplus or deficit'],
   },
 ]
 
@@ -54,7 +54,7 @@ export default function Landing() {
               <span className="block"><span className="text-teal-300">Studied</span> Together.</span>
             </h1>
             <p className="text-lg md:text-xl text-blue-100 mb-10 leading-relaxed max-w-xl">
-              Explore how an MTM-based pathway could change remote blood pressure monitoring participation, staffing needs, and budget impact compared with physician referral.
+              Explore how pharmacist recruitment and deprescribing could expand remote blood pressure monitoring and change the financial return of an integrated clinic.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link to="/integration-demo" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white text-brand-700 font-bold text-base hover:bg-blue-50 transition shadow-lg">
@@ -64,7 +64,7 @@ export default function Landing() {
                 </svg>
               </Link>
               <Link to="/calculator" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl border-2 border-white/50 text-white font-semibold text-base hover:bg-white/10 transition">
-                Open Value Calculator
+                Open Study Calculator
               </Link>
             </div>
           </div>
@@ -75,8 +75,8 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { value: '2 Pathways', label: 'Physician referral vs. MTM' },
-              { value: '12 Months', label: 'Planned recruitment period' },
+              { value: 'Added Value', label: 'Contribution of pharmacist integration' },
+              { value: '12 Months', label: 'Budget horizon' },
               { value: 'MTM + RPM', label: 'Integrated care workflow' },
               { value: 'Modeled Results', label: 'Literature-informed scenarios' },
             ].map(item => (
@@ -94,7 +94,7 @@ export default function Landing() {
           <div className="text-center mb-14">
             <h2 className="section-title">The Questions Behind the Study</h2>
             <p className="section-sub">
-              A planned comparison of RPM recruitment pathways from an integrated health system perspective.
+              A planned study of recruitment, deprescribing, and financial feasibility within an integrated system.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -112,9 +112,9 @@ export default function Landing() {
       <section className="py-20 bg-white" id="study-pathways">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="section-title">Two Pathways. One Study Population.</h2>
+            <h2 className="section-title">One Program. Added Pharmacist Support.</h2>
             <p className="section-sub">
-              The planned analysis applies each pathway to the same eligible population and compares unique RPM initiations per 1,000 members over 12 months.
+              The same eligible population is modeled with and without the added pharmacist role. Physician referrals continue; overlapping referrals never create duplicate RPM participants.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -136,7 +136,7 @@ export default function Landing() {
           <div className="mt-8 rounded-2xl bg-brand-50 border border-brand-200 p-6">
             <h3 className="font-bold text-brand-800 mb-2">Explore the current tools</h3>
             <p className="text-sm text-brand-800 leading-relaxed">
-              The interactive microsimulation applies both recruitment pathways to the same synthetic cohort and shows referral decisions and first BP transmissions. Its planning inputs combine transferred literature benchmarks with explicit assumptions; no study patient data have been collected. The Value Calculator separately explores budget scenarios for deprescribing and RPM.
+              The calculator and interactive microsimulation share one model. Follow synthetic patients from medication review and RPM offers through monitoring, possible medication reduction, and financial contribution. Literature informs selected inputs; remaining effects and costs are explicit assumptions. No study patient data have been collected.
             </p>
             <Link to="/simulation" className="btn-primary inline-flex mt-5">Explore the Microsimulation →</Link>
           </div>

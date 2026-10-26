@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { HashRouter, Navigate, Routes, Route, useLocation, useParams } from 'react-router-dom'
 import { RpmProvider } from './context/RpmContext'
+import { IntegrationStudyProvider } from './context/IntegrationStudyContext'
 import Navbar from './components/Navbar'
 import PublicDemoNotice from './components/PublicDemoNotice'
 import Footer from './components/Footer'
@@ -11,8 +12,8 @@ import Dashboard from './pages/Dashboard'
 import PatientDetail from './pages/PatientDetail'
 import PrintSummary from './pages/PrintSummary'
 import PatientPortal from './pages/PatientPortal'
-import InsurerDashboard from './pages/InsurerDashboard'
 import ValueCalculator from './pages/ValueCalculator'
+import IntegrationStudyCalculator from './pages/IntegrationStudyCalculator'
 import RecruitmentSimulation from './pages/RecruitmentSimulation'
 
 function LegacyDemoRedirect({ to }) {
@@ -34,6 +35,7 @@ export default function App() {
     <HashRouter>
       <ScrollToPageStart />
       <RpmProvider>
+      <IntegrationStudyProvider>
         <div className="min-h-screen flex flex-col">
           <Navbar />
           <PublicDemoNotice />
@@ -51,13 +53,15 @@ export default function App() {
               <Route path="/eligibility" element={<Navigate replace to="/" />} />
               <Route path="/dashboard/*" element={<LegacyDemoRedirect to="/integration-demo/dashboard" />} />
               <Route path="/portal" element={<LegacyDemoRedirect to="/integration-demo/patient-portal" />} />
-              <Route path="/insurer" element={<InsurerDashboard />} />
-              <Route path="/calculator" element={<ValueCalculator />} />
-              <Route path="/value-calculator" element={<ValueCalculator />} />
+              <Route path="/insurer" element={<Navigate replace to="/calculator" />} />
+              <Route path="/calculator" element={<IntegrationStudyCalculator />} />
+              <Route path="/value-calculator" element={<Navigate replace to="/calculator" />} />
+              <Route path="/legacy-budget" element={<ValueCalculator />} />
             </Routes>
           </main>
           <Footer />
         </div>
+      </IntegrationStudyProvider>
       </RpmProvider>
     </HashRouter>
   )

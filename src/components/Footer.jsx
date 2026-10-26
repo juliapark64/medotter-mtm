@@ -16,9 +16,8 @@ export default function Footer() {
             <h3 className="text-white font-semibold mb-3 text-sm uppercase tracking-wider">Explore</h3>
             <ul className="space-y-2 text-sm">
               <li><Link to="/" className="hover:text-white transition">Home</Link></li>
-              <li><Link to="/simulation" className="hover:text-white transition">Recruitment Simulation</Link></li>
-              <li><Link to="/insurer" className="hover:text-white transition">Insurer</Link></li>
-              <li><Link to="/calculator" className="hover:text-white transition">Value Calculator</Link></li>
+              <li><Link to="/simulation" className="hover:text-white transition">Microsimulation</Link></li>
+              <li><Link to="/calculator" className="hover:text-white transition">Study Calculator</Link></li>
               <li><Link to="/integration-demo" className="hover:text-white transition">MTM + RPM Demo</Link></li>
             </ul>
           </div>

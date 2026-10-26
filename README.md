@@ -1,82 +1,68 @@
-# MedOtter MTM
+# MTM + RPM integration study
 
-[Open the live demo](https://juliapark64.github.io/medotter-mtm/) · [Recruitment microsimulation](https://juliapark64.github.io/medotter-mtm/#/simulation) · [Open the calculator](https://juliapark64.github.io/medotter-mtm/#/calculator) · [Source code](https://github.com/juliapark64/medotter-mtm)
+[Live website](https://juliapark64.github.io/medotter-mtm/) · [Study calculator](https://juliapark64.github.io/medotter-mtm/#/calculator) · [Interactive microsimulation](https://juliapark64.github.io/medotter-mtm/#/simulation) · [Source code](https://github.com/juliapark64/medotter-mtm)
 
-MedOtter is a browser-based demonstration of medication therapy management (MTM), hypertension remote patient monitoring (RPM), and financial impact modeling. It includes fictional patient workflows, blood pressure trends and alerts, pharmacist review tools, and a deterministic budget-impact calculator.
+This research-planning website explores the added contribution of pharmacist recruitment and deprescribing within an existing RPM program. Usual physician referrals continue in both scenarios. The question is whether added pharmacist integration generates additional participation and enough retained value to cover its additional costs.
 
-## Study website and workflow demo
+No study patient data have been collected or fitted. Synthetic histories illustrate assumptions; they are not observations, clinical recommendations, or evidence of causal synergy. The Word one-pager and AMCP abstract are separate artifacts and remain unchanged.
 
-The home page introduces the planned physician-referral versus MTM-based recruitment study. **MTM + RPM Demo** opens a separate [integration overview](https://juliapark64.github.io/medotter-mtm/#/integration-demo) with the illustrative care workflow and entry points for the Pharmacist Dashboard and Patient Portal. Those tools now live under `#/integration-demo/dashboard` and `#/integration-demo/patient-portal`, with shared navigation back to the overview. Existing dashboard, patient-detail, print, and portal bookmarks redirect to the new locations, preserving query parameters.
+## One model, two views
 
-The main navigation contains Home, Simulation, Insurer, Value Calculator, and MTM + RPM Demo. The header logo and eligibility options have been removed; old eligibility bookmarks return to Home. Version 2.7.0 adds the recruitment microsimulation. Existing calculator equations, evidence inputs, and browser-local RPM records retain their behavior.
+**Study Calculator** presents analytic expectations, incremental financial benefit per 1,000 eligible members, additional RPM starts, and optional sustained medication reductions. **Simulation** uses the same inputs and equations to reveal a seeded patient's MTM review, RPM offer and initiation, service months, medication reduction, and financial contribution. Navigation preserves the applied scenario within the browser session. Playback, inspection, and speed changes do not redraw outcomes or count patients twice.
 
-## Recruitment microsimulation
+The current program contains existing RPM participants and usual physician referrals. Integration adds completed reviews, pharmacist RPM offers and medication assessment. A referral alone is not enrollment: initiation requires a first transmitted BP reading. Overlapping physician and pharmacist contacts still produce only one RPM episode, although duplicate outreach incurs work. Existing RPM patients can receive medication review without being counted as new starts.
 
-**Simulation** opens a paired patient-level model of physician referral and MTM-based RPM recruitment. The same synthetic IDs appear in a physician room and a pharmacy as alternative scenarios. Playback reveals conditional review/referral/offer decisions and RPM initiation (at least one transmitted BP reading); it does not represent appointment duration or calendar time. Play, pause, step, finish the cohort, inspect completed IDs, or edit inputs and restart. Playback and inspection never redraw outcomes or double-count patients.
+New starts and modeled medication assessments occur at the beginning of the selected month. Year-one spending and collections use only actual service months within the 12-month budget. Existing patients must still be active at the assessment month for a medication action. Clinical persistence is assessed 12 months after reduction and can extend beyond the budget year; drug savings count only reduced-medication months inside the budget.
 
-No study patient data have been collected or fitted. Starting values combine transferred literature benchmarks and explicit investigator assumptions. The recruitment model does not estimate clinical benefits, costs, or savings, and remains separate from the budget calculator. Larger synthetic cohorts and repeated seeds do not add empirical evidence.
+## Financial and clinical assumptions
 
-Finish a run to export patient-level CSV and replayable JSON. JSON includes inputs, seed, model version, metadata, evidence limitations, records, and analytic expectations. **Load JSON run** verifies an exported run before replaying it. For independent verification, run `node scripts/replayRecruitment.js /path/to/export.json` with Node.js 20 or later; no dependencies are needed. Retain the matching model source with archived exports. Read the [methods, equations, and evidence](docs/recruitment-microsimulation.md) and [generated-art provenance](docs/simulation-assets.md).
+The primary financial endpoint is **additional net financial benefit per 1,000 eligible members**: integrated program minus current program. Positive means financial improvement and negative means deterioration. A positive increment can be a smaller loss; it does not by itself establish that the integrated program is profitable. Cohort counts are also shown without standardization. Operating margin is reported separately.
 
-## Current calculator scope
+- **Consolidated integrated system:** external collections plus retained net medication savings minus program costs. Internal transfers between an owned plan, clinic and pharmacy cancel. A separate retained medication-savings share reflects drug-cost liability independently of the external RPM payer mix.
+- **Clinic operating margin:** external collections minus program costs. Medication savings paid for by another organization are excluded.
 
-The existing calculator asks: **Can deprescribing savings offset the added costs of RPM within MTM?** It uses a hypothetical Medicare Advantage health-plan perspective, with employed MTM pharmacists and an RPM device/data vendor. It compares deprescribing alone, RPM alone, and the combined program with standard MTM and hypertension care.
+These are accounting perspectives, not competing provider settings. The default external payer share is zero. Changing the perspective does not create revenue automatically. The revenue benchmark, payer mix, qualifying-month share and collection rate are editable assumptions, not a guaranteed reimbursement schedule. A first reading or a CDTA alone does not prove billability.
 
-The primary endpoint is one-year combined-program net budget impact per member per month (PMPM), across all covered members. Three-year projections are secondary. Positive net impact means added cost; negative means modeled savings. The calculator displays program costs, drug and cardiovascular cost offsets, workload, implementation break-even, and a result excluding cardiovascular savings.
+The default **no added deprescribing benefit** scenario explicitly sets both programs' clinical effects and medication savings to zero while retaining review workload. **Illustrative deprescribing** enables clearly labeled action assumptions and transferred persistence. **Clinical benefits not estimable** keeps clinical endpoints and total net benefit unavailable, while displaying operating margin. Unknown effects are not silently replaced by zero. No cardiovascular, hospitalization, fall or symptom savings are assigned.
 
-The community-pharmacy versus integrated-clinic comparison is outside the current calculator. Its historical source and [provider model documentation](docs/provider-feasibility-model.md) are retained for reproducibility. The recruitment microsimulation is a separate study-planning module at `#/simulation`; it does not feed outcomes into this budget calculator. Word documents and the AMCP abstract are not included in this repository.
+Loaded wages, task minutes, device and platform costs, fixed costs, and net medicine savings are investigator assumptions in 2026 USD pending local calibration. Source links explain what literature supports and where transfer assumptions begin. Read the [methods, equations and evidence](docs/integration-study-methods.md).
 
-## Try the demo
+## Reproduce a scenario
 
-Use **Value Calculator** in the navigation to explore the study. Routes use URL fragments, such as `#/calculator`, so direct links and refreshes work on GitHub Pages. The published address is available in the repository's **Settings → Pages** and its latest deployment.
+Apply edited inputs before exporting. **Save scenario JSON** includes exact inputs, seed, model/version metadata, evidence notes, patient histories, expected results and seeded results. **Load scenario JSON** verifies an exact replay before applying it. **Export results CSV** provides full-precision summary rows; JSON is the replay format. Save JSON before refreshing to retain inputs.
 
-All patient records and operational dashboard metrics are fictional. This prototype has no clinical backend, live device connection, or shared patient database. RPM enrollments, readings, alert acknowledgments, thresholds, and simulated prescriber logs are stored in that browser's `localStorage`; they do not synchronize with teammates. A different browser or site origin has separate state. Clearing the site's browser data resets these demo records.
+```bash
+# Node.js 20 or newer; no installed dependencies needed for replay
+node scripts/replayIntegrationStudy.js /path/to/mtm-integration-seed-2027.json
+# Or, within the project
+npm run replay:integration -- /path/to/mtm-integration-seed-2027.json
+```
 
-Use fictional information only. The demo is for research discussion and software review, not clinical care. Calculator inputs are held in the current page session; save a scenario JSON before refreshing or leaving if you want to retain them.
+Preserve the matching source version alongside exported runs. The integration engine is model 1.0.0 with export schema 1. Larger synthetic cohorts and repeated seeds reduce Monte Carlo noise; they do not add empirical evidence or establish clinical confidence intervals. Input uncertainty is separate from simulation noise.
 
-## Run locally
+## Website and workflow demonstration
 
-Use Node.js 20 or newer. From the cloned repository folder:
+Main navigation contains Home, Simulation, Study Calculator and MTM + RPM Demo. The Insurer page and its navigation links have been removed; old `#/insurer` bookmarks redirect to the study calculator. Eligibility links and the header logo remain removed.
+
+**MTM + RPM Demo** opens the workflow overview with the Pharmacist Dashboard and Patient Portal under `#/integration-demo`. Those fictional records are independent of the research cohort. The demo has no clinical backend, live device connection, or shared patient database. Demo enrollments, readings and alerts use browser-local storage and do not synchronize with teammates. Use fictional information only.
+
+The original budget calculator is retained at `#/legacy-budget` for historical reproduction. It uses different endpoints and assumptions; its exports must not be relabeled as current integration-study results. The old [budget methods](docs/integrated-system-model.md), [provider model](docs/provider-feasibility-model.md), and [recruitment-only model](docs/recruitment-microsimulation.md) remain archival. `npm run scenarios` and `npm run scenarios:providers` run those historical models, not the current shared model. Generated room and patient art is documented in [asset provenance](docs/simulation-assets.md).
+
+## Run and check locally
+
+Use Node.js 20 or newer:
 
 ```bash
 npm ci
 npm run dev
-```
-
-Open the local address printed by Vite and choose **Value Calculator**, or append `#/calculator` to that address. To check the production build locally:
-
-```bash
 npm test
 npm run build
 npm run preview
 ```
 
-The project uses React, React Router, Recharts, Tailwind CSS, and Vite. No API keys or application server are required.
+React, React Router, Recharts, Tailwind CSS and Vite power the app; no API keys or backend are required. Hash routes support direct GitHub Pages links. Version 3.0.0 introduces the shared integration calculator and microsimulation.
 
-## Share and reproduce scenarios
-
-In the calculator, edit assumptions and add source notes, then select the export scope. **Save scenario JSON** preserves exact inputs, model metadata, citations, and annual/cumulative results. Send that file to a teammate, who can use **Load scenario JSON** to recalculate, verify, and restore it. **Export results CSV** provides a table for inspection; JSON is the replay format. Scenario files can contain your notes, so review them before sharing.
-
-Browser and CLI defaults select the Geisinger-informed scenario: 1.09 discontinuation recommendations per completed initial review and 33.2% implementation. **Apply no added benefit** sets additional findings beyond existing MTM to zero while retaining workload, program costs, and RPM effects. **Reset study base case** restores the reference inputs, including the assumed 50% additional-findings share.
-
-```bash
-# Study base case, program comparisons, and exploratory sensitivity scenarios
-npm run scenarios
-
-# Write to a new folder; existing folders are never overwritten
-npm run scenarios -- --outdir ./results/my-study-run
-
-# Verify a saved scenario bundle
-npm run scenarios -- --replay ./results/my-study-run/scenarios.json --verify-only
-```
-
-Default runs are saved under `results/health-plan-study-v3/`. Each CLI run includes full-precision CSV, replayable JSON, runnable model source, SHA-256 checksums, and replay instructions. The archived verifier needs Node.js but no installed packages. Budget model 3.0.0 uses export schema 3; older bundles must be replayed with their matching archived source. `npm run scenarios:providers` remains an optional historical provider-model command, separate from the current study.
-
-## Evidence and limitations
-
-The [study model specification](docs/integrated-system-model.md) explains equations, sources, denominators, and assumptions. Literature references inform selected inputs; most costs, incremental effects, uptake, and persistence remain explicit assumptions. Geisinger does not validate those other inputs, and the model is not based on Kaiser patient or financial data. It assumes independent deprescribing and RPM effects and counts shared fixed costs once. It does not establish clinical synergy, observed savings, quality bonus revenue, or cost-effectiveness.
-
-Tests check calculation behavior, cohort accounting, validation, thresholds, and export replay. Passing them does not constitute clinical validation or independent spreadsheet verification. Keep assumptions, evidence labels, model metadata, and tests aligned when making changes; update model versions when changes affect reproducibility.
+Tests check cohort conservation, monthly accounting, conditional inputs, deduplication, financial perspectives, thresholds and export tampering. Passing tests confirms computational behavior, not clinical validation. Model changes affecting reproducibility require an engine version update.
 
 ## GitHub Pages deployment
 

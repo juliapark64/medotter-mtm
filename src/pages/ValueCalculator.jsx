@@ -97,7 +97,8 @@ export default function ValueCalculator() {
   return (
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <Link to="/insurer" className="text-sm font-semibold text-teal-700 hover:underline">← Insurer dashboard</Link>
+        <Link to="/calculator" className="text-sm font-semibold text-teal-700 hover:underline">← Current study calculator</Link>
+        <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Historical budget model: these assumptions and endpoints are separate from the current pharmacist-integration study.</p>
         <div className="mt-4 mb-6 flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-widest text-teal-700">MedOtter · MTM financial impact study</p>
