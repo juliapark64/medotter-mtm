@@ -2,7 +2,7 @@
 
 This is a hypothetical planning study of adding MTM recruitment and medication review to an existing RPM service. The calculator and synthetic patient simulation must use the same scenario assumptions and financial perspective. Neither is an observed study of Kaiser, a clinical decision tool, or evidence that integration causes savings. The AMCP abstract and Word endpoint plan are separate artifacts and are not modified by this implementation.
 
-The shared engine is [integrationStudy.js](../src/lib/integrationStudy.js), model `mtm-rpm-additive-integration`, version `2.0.0`, export schema `2`. Its input definitions are the authoritative defaults and validation limits. Calculator and simulation share recruitment, monthly service costs, code-linked reimbursement benchmarks, one-time setup collections and deprescribing accounting. This implementation supersedes the recruitment-only simulation for the integration question; it is not the old health-plan budget model with renamed outputs.
+The shared engine is [integrationStudy.js](../src/lib/integrationStudy.js), model `mtm-rpm-additive-integration`, version `3.0.0`, export schema `3`. Its input definitions are the authoritative defaults and validation limits. Calculator and simulation share recruitment, task-level team staffing, monthly service costs, code-linked reimbursement benchmarks, one-time setup collections and deprescribing accounting. This implementation supersedes the recruitment-only simulation for the integration question; it is not the old health-plan budget model with renamed outputs.
 
 ## Comparison and denominators
 
@@ -65,9 +65,9 @@ Keep two ledgers rather than summing them:
 
 ### Reimbursement modes and time
 
-The default **Medicare 2026 benchmark** mode links the monthly allowed amount to modeled pharmacist clinical management time. Rates are national nonfacility amounts from MedPAC Table 4-8, not a quote for Kaiser, a hospital outpatient department, Medicare Advantage or a commercial contract. [10] Geographic adjustment, billing practitioner, conversion factor, contract terms and qualification affect actual receipts. CMS has separate 2026 conversion factors for qualifying APM participants and other practitioners. [11]
+The default **Medicare 2026 benchmark** mode links the monthly allowed amount to modeled qualifying clinical management time across the team. Rates are national nonfacility amounts from MedPAC Table 4-8, not a quote for Kaiser, a hospital outpatient department, Medicare Advantage or a commercial contract. [10] Geographic adjustment, billing practitioner, conversion factor, contract terms and qualification affect actual receipts. CMS has separate 2026 conversion factors for qualifying APM participants and other practitioners. [11]
 
-| Pharmacist clinical minutes per active month | Assumed management code | Device/data benchmark | Monthly allowed-amount benchmark |
+| Qualifying team clinical minutes per active month | Assumed management code | Device/data benchmark | Monthly allowed-amount benchmark |
 | --- | --- | ---: | ---: |
 | Less than 10 | None | $52.11 | $52.11 |
 | 10 to less than 20 | 99470 | $52.11 | $78.16 |
@@ -79,9 +79,11 @@ The engine conservatively caps management add-ons at two while charging all ente
 
 **Custom contract** mode uses investigator-entered monthly and setup allowances, with the same qualification and collections accounting. **No reimbursement** mode produces zero monthly and setup collections while retaining service costs. It does not remove drug-cost offsets when these are separately enabled.
 
-In exported inputs, `reimbursementMode` is `medicare2026`, `custom` or `none`. `monthlyRevenueBenchmark` and `customSetupRevenueBenchmark` are used only in custom mode; changing them does not override Medicare's time-linked benchmark. `setupQualificationShare` is distinct from `qualificationShare`. `monthlyTechnologyCost` is per-patient software, `monthlyConnectivityCost` is a separate per-patient allowance, and the common annual subscription is `12 × monthlyPlatformBaseCost × platformProviderCount`.
+In exported inputs, `reimbursementMode` is `medicare2026`, `custom` or `none`. `monthlyRevenueBenchmark` and `customSetupRevenueBenchmark` are used only in custom mode; changing them does not override Medicare's time-linked benchmark. `setupQualificationShare` is distinct from `qualificationShare`. `monthlyTechnologyCost` is the per-patient vendor technology package, `monthlyConnectivityCost` is any additional per-patient connectivity charge, and an additional annual subscription is `12 × monthlyPlatformBaseCost × platformProviderCount`. Included package components must not be charged again.
 
-Only entered **pharmacist clinical management minutes** determine the management tier. The default is **20 pharmacist clinical minutes plus 10 technician support minutes per active month**. Technician support is nonclinical in this model and does not help satisfy a management-code time threshold. These task durations are workflow assumptions, not empirical staffing means. Management-code scenarios assume the required real-time patient/caregiver communication and other qualifying work occur; entering minutes alone does not establish billability. CMS permits eligible auxiliary services under general supervision, but a CDTA alone does not establish independent pharmacist Medicare billing eligibility. [9,12]
+The management tier uses **pharmacist clinical minutes plus the qualifying portion of non-pharmacist service minutes**. The default team has **3 pharmacist minutes and 27 advanced-technician minutes per active month**, of which **17 technician minutes are assumed to be qualifying supervised treatment management**. Thus, 20 of the 30 total service minutes determine the management tier; the remaining 10 technician minutes do not. `qualifiedSupportMinutes` is a subset of `monitorSupportMinutes`, never an additional workload or second labor charge. It cannot exceed the total non-pharmacist service minutes.
+
+The user explicitly selected the assumption that this supervised clinical time qualifies. This is a scenario assumption about the actual service, scope, supervision, documentation and billing arrangement, not a claim that every CPhT-A credential automatically qualifies. CMS permits eligible auxiliary services under general supervision, with an eligible billing practitioner and other requirements; a CDTA alone does not establish independent pharmacist billing eligibility. [9,12,19] The alternative scenario excludes technician time from the management threshold while preserving the same staffing costs. Real-time patient/caregiver communication and other qualifying work remain necessary. Scheduling, nonclinical device help, onboarding, outreach and separately counted MTM review do not enter the monthly management threshold.
 
 ### Monthly and one-time collections
 
@@ -103,21 +105,39 @@ Qualification is a pooled monthly gate: the engine does not separately adjudicat
 
 ### Cost benchmarks and remaining assumptions
 
-The cost basis is **2026 planning USD**, with source years disclosed. The engine does not inflate prices automatically. May 2025 national wage observations are carried forward without wage escalation and combined with a June 2026 compensation load; this is a cross-year proxy, not a rigorously reindexed 2026 local cost dataset.
+The cost basis is **2026 planning USD**, with source years disclosed. Default staffing and vendor costs now use the user's NCPA business-plan assumptions, identified separately from published evidence. The source workbook is not distributed with the website. [18] The engine does not inflate prices automatically. A June 2026 BLS healthcare compensation factor is applied to the cashbook's base wages as an additional modeling assumption. The earlier national wage and retail-component scenario remains available for comparison. Neither is an observed local cost dataset.
 
 | Cost input | Default and provenance | Limitation |
 | --- | --- | --- |
-| Pharmacist labor | $67.75/hour × (49.93/35.13) = approximately **$96.29/hour**. [13,14] | National wage plus broad healthcare benefits proxy; not observed clinic compensation. |
-| Technician support labor | $22.41/hour × (49.93/35.13) = approximately **$31.85/hour**. [13,14] | Nonclinical support role in this model; not billable management time. |
-| New-episode device | **$99.95** cellular cuff retail benchmark. [15] | Public retail price, not negotiated procurement; compatibility, shipping, taxes and replacements are unverified. |
-| Software | **$15 per active patient-month** RPM technology list price. [16] | Clinical monitoring is separate; software/vendor eligibility and interoperability need confirmation. |
-| Connectivity | **$5 per active patient-month** | Investigator allowance; remove or replace if connectivity is included in a contract. |
-| Common core subscription | **$299/provider/month × one shared license × 12 months = $3,588/year**. [16] | One license sufficient for the team is assumed. The license is charged to both arms and cancels in the increment. |
+| Pharmacist labor | Cashbook **$55/hour** × (49.93/35.13) = approximately **$78.17/hour**. [14,18] | Business-plan wage, plus an assumed benefit load; not a published salary estimate. |
+| Non-pharmacist RPM staff labor | Cashbook CPhT-A **$24/hour** × (49.93/35.13) = approximately **$34.11/hour**. [14,18] | Business-plan wage; clinical eligibility is a separate explicit assumption. |
+| One-time vendor/device package | Cashbook **$90 per unique new start**. [18] | User confirmed package coverage of the device and vendor onboarding; not an independently verified quote. In-house onboarding labor is separate. |
+| Recurring RPM technology package | Cashbook **$12 per active patient-month**. [18] | User confirmed software and cellular connectivity are included; clinical staff labor is separate. |
+| Additional connectivity | **$0** | Included in the assumed package; do not charge another connectivity fee for the same service. |
+| Additional core subscription | **$0** | No separate subscription on top of the user-confirmed bundle. Add only actual additional charges. |
 | Other fixed overhead | **$5,000/year** in both arms plus **$1,000** for integration | Investigator assumptions, kept separate from the core subscription. |
 
-The compensation factor loads benefits once; no additional productivity multiplier is applied. The hardware and software amounts form a **component-cost scenario**, not a verified interoperable vendor package. Vendor prices were accessed October 25, 2026. Enterprise terms and recurring connectivity require an actual quote. Public cellular cuff alternatives of $82.99 and $178 can support retail-price sensitivity scenarios; they are not statistical uncertainty bounds. [15]
+The compensation factor loads benefits once; no additional productivity multiplier is applied. The cashbook formulas reference the base hourly wage cells, rather than the separately escalated annual payroll, so the model does not import its payroll growth as well. These are allocated resource costs, not necessarily an immediate reduction in cash payroll for salaried employees.
 
-Other retained time assumptions include **10 incremental review minutes**, **5 offer minutes**, and **20 onboarding minutes**. These include associated documentation within the assumed task time, not a second uncosted documentation block. The model does not charge the entire existing CMR again when only incremental work is being added. Variable costs use all actual active service months; fixed costs persist even if there is no additional recruitment or clinical benefit. Discrete hiring steps, staffing capacity and extra billing administration costs are not separately estimated.
+The published-price comparison retains the prior **$99.95 cuff**, **$15 software**, **$5 connectivity allowance**, and **$299 monthly core subscription**. [15,16] Those are separate component benchmarks, not an independently verified interchangeable vendor package. The full prior pharmacist-heavy preset also restores the national loaded wages of **$96.29/$31.85 per hour**. [13,14] Public prices were accessed October 25, 2026. They are comparison scenarios, not statistical uncertainty bounds.
+
+The cashbook allocates **90% of service labor to CPhT-A staff and 10% to pharmacists**. [18] To isolate this allocation from a reduction in service intensity, the model retains the earlier total workload: **30 service minutes per active month**, split **3 pharmacist / 27 staff**; **5 minutes per offer**, split **0.5 / 4.5**; and **20 minutes per new onboarding**, split **2 / 18**. Adapting this service-level allocation to specific tasks is an investigator assumption. The **10-minute incremental medication review and follow-up remains entirely pharmacist work**. This allocation does not permit independent technician medication changes or imply an observed effect of staffing on clinical outcomes.
+
+All staff minutes are costed once, whether or not they qualify for payment. For active months `M`, completed reviews `R`, offers `O`, and unique new starts `S`:
+
+```text
+Pharmacist hours = (R × reviewMinutes + O × offerMinutes
+                    + S × onboardingMinutes + M × monitorPharmacistMinutes) / 60
+Other staff hours = (O × offerSupportMinutes + S × onboardingSupportMinutes
+                     + M × monitorSupportMinutes) / 60
+Labor cost = pharmacist hours × loaded pharmacist wage
+             + other staff hours × loaded staff wage
+Qualifying monthly clinical minutes = monitorPharmacistMinutes + qualifiedSupportMinutes
+```
+
+The cashbook combines RPM and CCM and its time-band formula does not reconcile cleanly to all tier labels. Its implied 15.1-minute monthly average therefore is **not** adopted as an RPM-only workload. CCM revenue and time are not imported. The model continues to count the setup fee once per qualifying new episode, and does not repeat setup in each month's receipts. The cashbook's provider revenue-sharing fraction is also distinct from the integrated system's external-payer share and is not substituted for it.
+
+Task durations include associated documentation within the entered time. The model does not charge the entire existing CMR again when only incremental work is added. Variable costs use all active months, including unpaid ones. Fixed costs persist when there is no additional recruitment or clinical benefit. Discrete hiring steps, staffing capacity and extra billing administration costs are not separately estimated.
 
 An NYU Langone RPM study reports NP data review of 10 minutes/week plus 15 minutes/month communication. [17] Adapting this to pharmacist work gives `10 × 52 / 12 + 15 = 58.33` clinical minutes/month, a higher-workload sensitivity, not a validated pharmacist mean. It does not imply improved clinical outcomes. The study's average four-month episode and $330 total episode cost in 2024 USD are not current monthly prices for a cellular platform.
 
@@ -141,7 +161,7 @@ Validation should check cohort conservation, exclusion of existing participants 
 
 An integration JSON bundle includes complete inputs, the seed, model/evidence metadata, paired synthetic patient records, analytic expected summaries and simulated summaries. `qualifiedSetups` counts eligible new setup episodes; `monthlyRevenue` and `setupRevenue` sum to total `revenue`. Cost components appear in `costBreakdown`; common platform and other fixed costs and added integration fixed costs are cohort costs, not patient charges. The shared verifier reruns the model and rejects mismatched versions, schema, inputs, metadata or results. It does not treat a plausible edited summary as a valid run. A CSV is a table for inspection; use JSON for exact replay.
 
-Version **2.0.0/schema 2** rejects version **1.0.0/schema 1** bundles. Earlier exports remain evidence of their original model, with the original source revision required for replay; they are not silently migrated or relabeled. The earlier reimbursement-review analysis added setup as a separate expected-value supplement. Version 2 now models setup in both expected and seeded results, so that supplement must not be added again.
+Version **3.0.0/schema 3** rejects earlier version 1 and version 2 bundles. Earlier exports remain evidence of their original model, with the original source revision required for replay; they are not silently migrated or relabeled. Version 3 adds non-pharmacist outreach, onboarding and qualifying clinical time. Setup remains included in expected and seeded results, so the earlier standalone setup supplement must not be added again.
 
 From the repository root, verify an exported file without modifying it:
 
@@ -170,5 +190,7 @@ The command prints a compact JSON summary and exits successfully only after exac
 15. The Digital Health Store. [RPM products and public cellular-cuff retail prices](https://thedigitalhealthstore.com/collections/rpm-software-and-services), accessed October 25, 2026.
 16. SmartClinix. [Published pricing plan](https://smartclinix.net/pricing-plan/), accessed October 25, 2026. RPM technology and Professional core prices are component benchmarks; clinical monitoring, device compatibility, licensing and enterprise contract terms are separate.
 17. NYU Langone RPM economic evaluation, 2026. [Full article and workload/cost inputs](https://pmc.ncbi.nlm.nih.gov/articles/PMC13016703/). Transferring NP workload to pharmacist time is an explicit sensitivity assumption.
+18. User-supplied *RPM Cash Book.xlsx*, unpublished NCPA business-competition plan, reviewed October 25, 2026. `RPM etc!B30:B31` supplies the 90%/10% labor allocation; `Pro exp!F68` and `F70` supply $24/$55 base hourly wages; `RPM etc!B26` and `B28` supply $90 one-time and $12 monthly vendor charges. The user separately confirmed qualifying supervised clinical work and that the vendor charges include device/software/connectivity while in-house labor remains separate. These are planning assumptions, not peer-reviewed estimates, claims evidence, or an independently verified vendor contract. The private source workbook is not uploaded.
+19. Noridian. [Incident To Services](https://med.noridianmedicare.com/web/jfb/topics/incident-to-services), role, scope and state qualification requirements. Apply RPM's specific general-supervision provisions from CMS [9]; the generic incident-to direct-supervision discussion does not replace the RPM rule. A job title alone does not establish that a particular task qualifies as clinical treatment management.
 
 The prior [health-plan budget model](integrated-system-model.md) and [provider comparison](provider-feasibility-model.md) use different questions and assumptions. Their exports must retain their original model versions; do not relabel them as results from the integration study.

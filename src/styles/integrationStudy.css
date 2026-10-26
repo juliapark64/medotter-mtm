@@ -84,6 +84,11 @@
 .study-payment-summary { background:#edf5fb; border:1px solid #c7ddec; padding:20px; border-radius:10px; }
 .study-payment-summary > p:not(.study-eyebrow) { font-size:12px; line-height:1.8; color:#3e5b76; margin:14px 0; }
 .study-payment-summary > a { font-size:12px; }
+.study-team-summary { background:#f0f8f4; border:1px solid #bfdecf; padding:20px; border-radius:10px; margin:20px 0; }
+.study-team-summary > p:not(.study-eyebrow) { font-size:12px; line-height:1.8; color:#3d6055; margin:14px 0 0; }
+.study-team-summary .study-payment-values strong { color:#145747; }
+.study-citation-title { color:#274264; font-size:13px; font-weight:750; }
+.study-field p.study-source-note,.study-source-note { font-size:10px; color:#677c90; line-height:1.6; }
 .study-payment-values { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; }
 .study-payment-values span { font-size:11px; color:#526b84; line-height:1.6; display:block; }
 .study-payment-values strong { display:block; font-size:25px; color:#123d77; margin-top:8px; font-variant-numeric:tabular-nums; }

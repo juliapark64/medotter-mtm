@@ -15,9 +15,10 @@ const percent = value => known(value) ? `${number(value * 100)}%` : 'Not estimat
 const options = { consolidated: 'Consolidated integrated system', clinic: 'Clinic operating margin', none: 'No added deprescribing benefit', illustrative: 'Illustrative deprescribing assumptions', unestimated: 'Clinical benefits not estimable' }
 const paymentOptions = { medicare2026: '2026 Medicare benchmarks', custom: 'Custom payment contract', none: 'No RPM reimbursement' }
 const costRows = [
-  ['reviews', 'Added medication reviews'], ['offers', 'Pharmacist recruitment offers'], ['onboarding', 'Pharmacist onboarding'],
-  ['pharmacistMonitoring', 'Pharmacist clinical monitoring'], ['technicalSupport', 'Nonclinical technician support'],
-  ['physicianReferrals', 'Usual physician referrals'], ['devices', 'New connected BP devices'], ['software', 'RPM software'],
+  ['reviews', 'Added pharmacist medication reviews'], ['offers', 'Pharmacist recruitment offers'], ['supportOffers', 'Staff recruitment assistance'],
+  ['onboarding', 'Pharmacist onboarding'], ['supportOnboarding', 'Staff onboarding'],
+  ['pharmacistMonitoring', 'Pharmacist clinical monitoring'], ['technicalSupport', 'Non-pharmacist RPM service'],
+  ['physicianReferrals', 'Usual physician referrals'], ['devices', 'One-time vendor/device package'], ['software', 'RPM technology bundle'],
   ['connectivity', 'Assumed connectivity'], ['platformBase', 'Shared platform subscription'], ['otherFixed', 'Other program overhead'], ['addedFixed', 'Added integration overhead']
 ].map(([key, label]) => ({ key, label, cost: true, format: money }))
 const citations = [
@@ -54,7 +55,8 @@ function Parameter({ name, draft, setDraft, errors }) {
     {d.options ? <select id={`study-${name}`} value={value} onChange={update} aria-describedby={`study-help-${name}`}>{d.options.map(option => <option key={option} value={option}>{(name === 'reimbursementMode' ? paymentOptions : options)[option] || option}</option>)}</select>
       : <input id={`study-${name}`} type="number" value={displayed} min={d.min * (isPercent ? 100 : 1)} max={d.max * (isPercent ? 100 : 1)} step={d.step === 'any' ? 'any' : d.step * (isPercent ? 100 : 1)} onChange={update} placeholder={d.nullable ? 'Not specified' : undefined} aria-invalid={!!errors[name]} aria-describedby={`study-help-${name}`} />}
     <p id={`study-help-${name}`}>{d.description}{d.nullable && ' Leave blank to keep unspecified.'}</p>
-    <div className="study-field-source"><span>{d.sourceUrls?.length > 0 && value !== d.default ? `Edited assumption · reference ${reference}` : d.evidenceType}</span>{d.sourceUrls?.map((url, i) => <a key={url} href={url} target="_blank" rel="noreferrer">Source{d.sourceUrls.length > 1 ? ` ${i + 1}` : ''} ↗</a>)}</div>
+    <div className="study-field-source"><span>{(d.sourceUrls?.length > 0 || d.sourceNotes) && value !== d.default ? `Edited assumption · reference ${reference}` : d.evidenceType}</span>{d.sourceUrls?.map((url, i) => <a key={url} href={url} target="_blank" rel="noreferrer">Source{d.sourceUrls.length > 1 ? ` ${i + 1}` : ''} ↗</a>)}</div>
+    {d.sourceNotes && <p className="study-source-note">{Array.isArray(d.sourceNotes) ? d.sourceNotes.join(' ') : d.sourceNotes}</p>}
     {errors[name] && <p className="study-error">{errors[name]}</p>}
   </div>
 }
@@ -76,11 +78,29 @@ function PaymentSchedule({ inputs, draft = false }) {
       <div><span>Setup allowance</span><strong>{rate(schedule.setupFee)}<small> / qualifying new episode</small></strong></div>
     </div>
     {inputs.reimbursementMode === 'medicare2026' ? <>
-      <p>{schedule.deviceCodeLabel}: {rate(schedule.deviceFee)} + {schedule.managementCode || 'no qualifying management code'}{schedule.additionalUnits > 0 ? ` + ${schedule.additionalUnits} × 99458` : ''}: {rate(schedule.managementFee)}. Clinical time: {number(schedule.qualifyingClinicalMinutes)} minutes/month. Technician support does not add clinical billing minutes.</p>
+      <p>{schedule.deviceCodeLabel}: {rate(schedule.deviceFee)} + {schedule.managementCode || 'no qualifying management code'}{schedule.additionalUnits > 0 ? ` + ${schedule.additionalUnits} × 99458` : ''}: {rate(schedule.managementFee)}. Qualifying clinical time: {number(schedule.qualifyingClinicalMinutes)} minutes/month = {number(inputs.monitorPharmacistMinutes)} pharmacist + {number(inputs.qualifiedSupportMinutes)} supervised staff minutes. The remaining {number(inputs.monitorSupportMinutes - inputs.qualifiedSupportMinutes)} staff minutes are excluded from the billing threshold.</p>
       <p>National nonfacility 2026 allowed amounts; locality and practitioner adjustments may differ. Data and management codes are alternatives within each category. Qualifying time must include the required patient/caregiver interaction and all other service requirements.</p>
     </> : <p>{inputs.reimbursementMode === 'none' ? 'All RPM collections are zero; staffing, devices, reviews and other service costs remain.' : 'Contract amounts are user assumptions. This mode does not assert Medicare code eligibility or infer clinical effectiveness.'}</p>}
     <p>Recurring receipts = benchmark × {percent(inputs.qualificationShare)} qualifying months × {percent(inputs.collectionShare)} collection realization × {percent(inputs.externalPayerShare)} external payer share. Setup is separate, once per new qualifying episode; {percent(inputs.setupQualificationShare)} setup qualification is assumed.</p>
     <a className="study-text-link" href="https://www.medpac.gov/wp-content/uploads/2026/03/Mar26_Ch4_MedPAC_Report_To_Congress_SEC.pdf" target="_blank" rel="noreferrer">2026 fee source · MedPAC Table 4-8 ↗</a>
+  </div>
+}
+
+function TeamStaffingSummary({ inputs, draft = false }) {
+  if (Object.keys(validateIntegrationInputs(inputs)).length) return null
+  const pharmacistCost = inputs.monitorPharmacistMinutes / 60 * inputs.pharmacistWage
+  const staffCost = inputs.monitorSupportMinutes / 60 * inputs.supportWage
+  const totalMinutes = inputs.monitorPharmacistMinutes + inputs.monitorSupportMinutes
+  return <div className="study-team-summary">
+    <p className="study-eyebrow">{draft ? 'Staffing preview · apply to update results' : 'Applied team staffing'}</p>
+    <div className="study-payment-values">
+      <div><span>Pharmacist monitoring</span><strong>{number(inputs.monitorPharmacistMinutes)} min<small>{rate(pharmacistCost)} per active month</small></strong></div>
+      <div><span>Non-pharmacist RPM service</span><strong>{number(inputs.monitorSupportMinutes)} min<small>{rate(staffCost)} per active month</small></strong></div>
+      <div><span>Total recurring labor</span><strong>{rate(pharmacistCost + staffCost)}<small>{number(totalMinutes)} minutes per active month</small></strong></div>
+    </div>
+    <p><b>{number(inputs.monitorPharmacistMinutes + inputs.qualifiedSupportMinutes)} qualifying clinical minutes</b> include {number(inputs.qualifiedSupportMinutes)} of the {number(inputs.monitorSupportMinutes)} staff minutes. Qualifying staff time is a subset, not additional labor. The other {number(inputs.monitorSupportMinutes - inputs.qualifiedSupportMinutes)} minutes cover nonclinical work.</p>
+    <p>Each offer uses {number(inputs.offerMinutes)} pharmacist + {number(inputs.offerSupportMinutes)} staff minutes. Each unique new start uses {number(inputs.onboardingMinutes)} pharmacist + {number(inputs.onboardingSupportMinutes)} staff onboarding minutes. Added medication review and deprescribing follow-up remain {number(inputs.reviewMinutes)} pharmacist minutes per completed review.</p>
+    <p>The default adapts the cashbook’s 10% pharmacist / 90% technician service mix while retaining the prior 30-minute monthly workload. Qualifying supervised treatment-management time is assumed for this scenario; a technician credential or CDTA alone does not establish eligibility. The evidence tab includes a case excluding staff time from reimbursement.</p>
   </div>
 }
 
@@ -105,7 +125,12 @@ export default function IntegrationStudyCalculator() {
   const breakEvenRevenue = !known(run.expected.delta.netFinancialBenefit) ? null : revenueGap <= 0 ? 0 : collectionsDenominator > 0 ? revenueGap / collectionsDenominator : null
   const financialGap = known(run.expected.delta.netFinancialBenefit) ? Math.max(0, -run.expected.delta.netFinancialBenefit) : null
   const costReduction = known(financialGap) && run.expected.delta.programCost > 0 ? financialGap / run.expected.delta.programCost : null
-  const fields = names => <div className="study-fields">{names.map(name => <Parameter key={name} name={name} draft={draft} setDraft={setDraft} errors={errors} />)}</div>
+  const editDraft = update => {
+    setDraft(update)
+    setErrors({})
+    if (notice === 'Please correct the highlighted inputs before applying this scenario.') setNotice(null)
+  }
+  const fields = names => <div className="study-fields">{names.map(name => <Parameter key={name} name={name} draft={draft} setDraft={editDraft} errors={errors} />)}</div>
   const apply = next => {
     const nextErrors = validateIntegrationInputs(next)
     setErrors(nextErrors)
@@ -147,7 +172,7 @@ export default function IntegrationStudyCalculator() {
         <Metric label="Additional sustained reductions" value={number(delta.clinical.sustainedAt12Months)} note="Medication reductions maintained 12 months after action; one medicine per action assumed." />
       </div>
       <p className="study-result-note">{basis === 'expected' ? 'Analytic expectations may be fractional. ' : 'This seeded synthetic sample may differ from the expectation. ' }Starts and medicines are counts for the applied cohort; only the financial card is standardized per 1,000. No study patient data have been collected.</p>
-      <p className="study-assumption-note">Published fees and cost benchmarks are combined with scenario assumptions: {percent(inputs.externalPayerShare)} external payer share, {percent(inputs.qualificationShare)} qualifying months, and {number(inputs.monitorPharmacistMinutes)} pharmacist + {number(inputs.monitorSupportMinutes)} nonclinical technician minutes per active month. These are hypothetical program results, not Kaiser data.</p>
+      <p className="study-assumption-note">Published fees, cost benchmarks and business-plan staffing assumptions are combined: {percent(inputs.externalPayerShare)} external payer share, {percent(inputs.qualificationShare)} qualifying months, and {number(inputs.monitorPharmacistMinutes)} pharmacist + {number(inputs.monitorSupportMinutes)} staff minutes per active month. Of the staff time, {number(inputs.qualifiedSupportMinutes)} minutes are assumed to qualify as supervised clinical work. These are hypothetical program results, not Kaiser data.</p>
       {(inputs.externalPayerShare === 0 || inputs.reimbursementMode === 'none') && <div className="study-explanation"><strong>Why are collections zero here?</strong> {inputs.reimbursementMode === 'none' ? 'No RPM reimbursement is selected. Costs remain even when services are unpaid.' : 'The applied scenario assumes no external payer receipts. Payments within an owned plan and clinic cancel in consolidated accounting.'} Edit the payment pathway and external payer share in Financial return to model outside collections.</div>}
       {inputs.clinicalMode !== 'illustrative' && <p className="study-clinical-note">{inputs.clinicalMode === 'none' ? 'Conservative scenario: medication effects and savings are explicitly set to zero in both programs; review costs remain. Enable illustrative assumptions in Deprescribing to explore that contribution.' : 'Clinical effects are unspecified. Operating margin remains available; the total endpoint is withheld rather than treating unknown benefit as zero.'}</p>}
 
@@ -175,7 +200,7 @@ export default function IntegrationStudyCalculator() {
           </section>
           <section className="study-card">
             <h2>Match reimbursement to the clinical work</h2>
-            <p className="study-copy">Medicare mode uses cited 2026 national nonfacility benchmarks. The clinical management code changes with pharmacist monitoring minutes; technician support does not satisfy clinical time. Contract mode allows an alternative payment arrangement. Neither mode establishes billing eligibility.</p>
+            <p className="study-copy">Medicare mode uses cited 2026 national nonfacility benchmarks. The clinical management code uses pharmacist monitoring plus the specified qualifying portion of supervised staff time. Administrative and technical assistance, separate onboarding and medication review do not enter that threshold. Contract mode allows an alternative payment arrangement. Neither mode establishes billing eligibility.</p>
             {fields(['reimbursementMode'])}
             {draft.reimbursementMode === 'custom' && fields(['monthlyRevenueBenchmark', 'customSetupRevenueBenchmark'])}
             {fields(['qualificationShare', 'setupQualificationShare', 'collectionShare'])}
@@ -184,15 +209,17 @@ export default function IntegrationStudyCalculator() {
           </section>
           <section className="study-card">
             <h2>Staff time and compensation</h2>
-            <p className="study-copy">Loaded wages combine BLS May 2025 national wages with the June 2026 healthcare compensation ratio. Benefits are included once. Monitoring minutes, onboarding, offers and added review time are investigator assumptions; wages alone do not validate the workload.</p>
-            {fields(['pharmacistWage', 'supportWage', 'monitorPharmacistMinutes', 'monitorSupportMinutes', 'offerMinutes', 'reviewMinutes', 'onboardingMinutes', 'physicianReferralCost'])}
+            <p className="study-copy">The default team uses the cashbook’s planned base wages of $55/hour for pharmacists and $24/hour for advanced technicians, with the BLS healthcare compensation ratio applied once for benefits. These are business-plan assumptions, not measured study costs. The pharmacist-heavy sensitivity retains the prior national BLS wage benchmarks.</p>
+            <TeamStaffingSummary inputs={draft} draft={dirty} />
+            {fields(['pharmacistWage', 'supportWage', 'monitorPharmacistMinutes', 'monitorSupportMinutes', 'qualifiedSupportMinutes', 'offerMinutes', 'offerSupportMinutes', 'reviewMinutes', 'onboardingMinutes', 'onboardingSupportMinutes', 'physicianReferralCost'])}
+            <p className="study-copy">The same team allocation applies to existing and additional RPM participants. Staff hours include recurring service, recruitment assistance and onboarding, with no double counting of the clinical subset. Valued staff time measures resources used; it does not imply that salaried payroll immediately falls when tasks move between roles.</p>
             <div className="study-explanation"><strong>A billing threshold is not an observed workload</strong> NYU Langone reported 10 minutes of clinical review per week plus 15 minutes of monthly communication, approximately 55–58 minutes/month in its NP-led program. The higher-workload preset transfers this workload to pharmacists as a sensitivity; it does not assume improved clinical outcomes. <a className="study-text-link" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13016703/" target="_blank" rel="noreferrer">Read the study ↗</a></div>
           </section>
           <section className="study-card">
             <h2>Devices, software and overhead</h2>
-            <p className="study-copy">Hardware and software use published component-price benchmarks, not a verified vendor package or negotiated clinic quote. Connectivity, the number of shared provider licenses, other overhead and added integration costs remain assumptions. Confirm compatibility and what is included before combining actual vendor fees.</p>
+            <p className="study-copy">The default uses the cashbook’s $90 one-time vendor/device package per new start and $12 technology bundle per active patient-month. The supplied scenario assumes these charges include the device, software and cellular connectivity, so extra connectivity and platform-base charges start at zero. These are business-plan contract assumptions, not public price benchmarks.</p>
             {fields(['deviceCost', 'monthlyTechnologyCost', 'monthlyConnectivityCost', 'monthlyPlatformBaseCost', 'platformProviderCount', 'fixedCost', 'addedFixedCost'])}
-            <p className="study-copy">The shared platform subscription is counted once in each program and cancels in the added contribution. Other fixed overhead excludes this subscription. Remove any overlap with an existing platform contract; account for extra licenses if the expanded team needs them.</p>
+            <p className="study-copy">In-house pharmacist and staff onboarding labor remains separate from the vendor charge. Do not add component fees already included in the chosen package. If a separate platform subscription is entered, it is counted once in each program and cancels in the added contribution. Other fixed overhead excludes that subscription. Published component-price presets remain available for comparison.</p>
           </section>
           <section className="study-card">
             <h2>Where the money goes</h2>
@@ -200,7 +227,7 @@ export default function IntegrationStudyCalculator() {
             <Comparison result={result} rows={costRows} />
             <Comparison result={result} rows={[
               { key: 'pharmacistHours', label: 'Pharmacist hours in budget year' },
-              { key: 'supportHours', label: 'Nonclinical technician hours' },
+              { key: 'supportHours', label: 'Non-pharmacist staff hours, all tasks' },
               { key: 'qualifiedMonths', label: 'Qualifying recurring service months' },
               { key: 'qualifiedSetups', label: 'Qualifying unique new setups' },
               { key: 'monthlyRevenue', label: 'External recurring collections', format: money },
@@ -223,8 +250,8 @@ export default function IntegrationStudyCalculator() {
         </>}
         {tab === 'Evidence & scenarios' && <>
           <section className="study-card"><h2>Test the assumptions that drive the result</h2><p className="study-copy">Each preset states the payment, workload or clinical assumptions it changes. Recruitment remains shared with the current program. Applying a preset updates the calculator and restarts microsimulation playback with the same seed.</p><div className="study-table-wrap"><table className="study-table"><thead><tr><th>Scenario</th><th>Added starts</th><th>Net benefit / 1,000</th><th>Use scenario</th></tr></thead><tbody>{scenarios.map(s => <tr key={s.id}><th scope="row">{s.name}</th><td>{number(s.result.delta.newInitiations)}</td><td>{money(s.result.delta.netBenefitPer1000)}</td><td><button className="study-small-button" aria-label={`Apply ${s.name}`} onClick={() => apply(s.inputs)}>Apply {s.id === 'illustrative' ? 'illustrative' : 'scenario'}</button></td></tr>)}</tbody></table></div><p className="study-copy">Expected-value scenarios are deterministic. Seed variation illustrates Monte Carlo noise; it is not a clinical confidence interval or a probabilistic sensitivity analysis.</p></section>
-          <section className="study-card"><h2>Evidence, with its limits</h2><p className="study-copy">A source supports a specific input and population. Transferring that quantity to this study remains an assumption. Published allowed amounts, derived wage benchmarks and public price lists are distinct from observed clinic costs. Staff minutes, payer mix, qualification, connectivity, overhead, recruitment and deprescribing effects still require local calibration. Prices have their own source years; no automatic inflation adjustment is applied.</p><div className="study-citations">{[...FINANCIAL_EVIDENCE.map(({ title, description, url }) => [title, description, url]), ...citations].map(([title, text, url], i) => <article key={url}><span>{String(i + 1).padStart(2, '0')}</span><div><a href={url} target="_blank" rel="noreferrer">{title} ↗</a><p>{text}</p></div></article>)}</div><a href={METHODS} target="_blank" rel="noreferrer" className="study-text-link">Read the complete equations, evidence and limitations ↗</a></section>
-          <section className="study-card"><h2>Reproduce this scenario</h2><p className="study-copy">JSON includes the applied inputs, seed, model version, patient histories, analytic expectations, seeded results and source notes. Loading JSON verifies an exact replay before changing the scenario. Version 1 exports are rejected with a clear version message; their earlier calculations are not silently changed. CSV contains full-precision summary results; JSON is the replay format. Exported files contain only synthetic data.</p><p className="study-copy">Model {run.metadata.version} · {run.metadata.id}. The earlier budget calculator has different endpoints and remains available as a <Link className="study-text-link" to="/legacy-budget">historical model</Link>. Its exports are not interchangeable with this study.</p></section>
+          <section className="study-card"><h2>Evidence, with its limits</h2><p className="study-copy">A source supports a specific input and population. Transferring that quantity to this study remains an assumption. Published allowed amounts, derived wage benchmarks, public price lists and the unpublished cashbook’s staffing plan are distinct from observed clinic costs. Staff minutes, payer mix, qualification, connectivity, overhead, recruitment and deprescribing effects still require local calibration. Prices have their own source years; no automatic inflation adjustment is applied.</p><div className="study-citations">{[...FINANCIAL_EVIDENCE.map(({ title, description, url, reference }) => [title, description, url, reference]), ...citations].map(([title, text, url, reference], i) => <article key={title}><span>{String(i + 1).padStart(2, '0')}</span><div>{url ? <a href={url} target="_blank" rel="noreferrer">{title} ↗</a> : <strong className="study-citation-title">{title}</strong>}<p>{text}</p>{reference && <p className="study-source-note">{reference}</p>}</div></article>)}</div><a href={METHODS} target="_blank" rel="noreferrer" className="study-text-link">Read the complete equations, evidence and limitations ↗</a></section>
+          <section className="study-card"><h2>Reproduce this scenario</h2><p className="study-copy">JSON includes the applied inputs, seed, model version, patient histories, analytic expectations, seeded results and source notes. Loading JSON verifies an exact replay before changing the scenario. Earlier model versions are rejected with a clear version message; their calculations are not silently changed. CSV contains full-precision summary results; JSON is the replay format. Exported files contain only synthetic data.</p><p className="study-copy">Model {run.metadata.version} · {run.metadata.id}. The earlier budget calculator has different endpoints and remains available as a <Link className="study-text-link" to="/legacy-budget">historical model</Link>. Its exports are not interchangeable with this study.</p></section>
         </>}
       </div>
       <div className="study-actions"><div><strong>{dirty ? 'You have unapplied edits' : 'Calculator and simulation share this scenario'}</strong><p>{dirty ? 'Apply edits before exporting or opening the simulation.' : 'Save a JSON file to retain inputs after refreshing the page.'}</p></div><div className="study-action-buttons"><button className="btn-primary" onClick={() => apply(draft)} disabled={!dirty}>Apply inputs</button><button className="study-small-button" onClick={() => apply({ ...DEFAULT_INTEGRATION_INPUTS })}>Reset defaults</button></div></div>

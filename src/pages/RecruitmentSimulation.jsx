@@ -83,11 +83,14 @@ function phaseContent(patient, phase, inputs) {
     }
     case 2: return {
       title: b.participating ? 'Monitoring contributes service months' : 'No RPM service in this realization',
-      note: `These are modeled service-month totals for the budget year, not elapsed playback time. Staffing assumes ${number(inputs.monitorPharmacistMinutes)} pharmacist and ${number(inputs.monitorSupportMinutes)} nonclinical technical-support minutes per active month. Technical support does not count toward the clinical treatment-management time threshold.`,
+      note: `These are modeled service-month totals for the budget year, not elapsed playback time. Staffing assumes ${number(inputs.monitorPharmacistMinutes)} pharmacist and ${number(inputs.monitorSupportMinutes)} non-pharmacist staff minutes per active month. Of the staff time, ${number(inputs.qualifiedSupportMinutes)} minutes are assumed to qualify as supervised clinical treatment management; the remaining ${number(inputs.monitorSupportMinutes - inputs.qualifiedSupportMinutes)} minutes do not enter the billing threshold.`,
       fields: [
         ['Current program · active months', number(a.activeMonths)],
         ['With MTM integration · active months', number(b.activeMonths)],
         ['Added service months', signed(b.activeMonths - a.activeMonths)],
+        ['Qualifying clinical minutes per active month', number(inputs.monitorPharmacistMinutes + inputs.qualifiedSupportMinutes)],
+        ['With MTM · pharmacist hours, all tasks', number(b.pharmacistHours)],
+        ['With MTM · staff hours, all tasks', number(b.supportHours)],
         ['With MTM · reimbursement-qualified months', number(b.qualifiedMonths)],
         ['With MTM · one-time setup qualified', yesNo(b.qualifiedSetups)],
       ],
@@ -180,30 +183,35 @@ function FinancialAssumptions({ inputs }) {
   const payment = getRpmPaymentSchedule(inputs)
   return (
     <details className="sim-finance-assumptions">
-      <summary>Applied payment and staffing assumptions <span>{payment.mode === 'medicare2026' ? '2026 Medicare benchmark' : payment.mode === 'none' ? 'No reimbursement' : 'Custom reimbursement'} · {number(inputs.monitorPharmacistMinutes)} assumed clinical minutes/month</span></summary>
+      <summary>Applied payment and staffing assumptions <span>{payment.mode === 'medicare2026' ? '2026 Medicare benchmark' : payment.mode === 'none' ? 'No reimbursement' : 'Custom reimbursement'} · {number(payment.qualifyingClinicalMinutes)} qualifying clinical minutes/month · {number(inputs.monitorPharmacistMinutes)} pharmacist + {number(inputs.monitorSupportMinutes)} staff minutes</span></summary>
       <div className="sim-finance-assumption-grid">
         <section><h3>Benchmark before qualification</h3><strong>{money(payment.monthlyBenchmark)} <small>/ qualifying month</small></strong><p>{payment.mode === 'medicare2026' ? `${payment.deviceCodeLabel}: ${money(payment.deviceFee)}; ${payment.managementCode || 'no treatment-management code'}: ${money(payment.managementFee)}${payment.additionalUnits ? `, including ${number(payment.additionalUnits)} additional unit(s)` : ''}.` : 'The selected reimbursement scenario determines the monthly payment benchmark.'}</p><p>One-time setup benchmark: <b>{money(payment.setupFee)}</b> per qualifying new start. Existing RPM participants receive no new setup payment.</p></section>
         <section><h3>Receipts remain conditional</h3><p>Applied assumptions: <b>{percent(inputs.qualificationShare)}</b> of active months and <b>{percent(inputs.setupQualificationShare)}</b> of new setups qualify. Collection factor: <b>{percent(inputs.collectionShare)}</b>; external-payer share: <b>{percent(inputs.externalPayerShare)}</b>.</p><p>Internal payments are excluded from external receipts. Fee benchmarks do not establish eligibility, coverage, or a successful claim.</p></section>
-        <section><h3>Workload is an assumption</h3><p><b>{number(inputs.monitorPharmacistMinutes)} pharmacist minutes</b> and <b>{number(inputs.monitorSupportMinutes)} nonclinical technical-support minutes</b> per active month, at loaded hourly costs of {money(inputs.pharmacistWage)} and {money(inputs.supportWage)}.</p><p>Only qualifying clinical time selects a treatment-management code. Technical support is costed separately and adds no clinical billing time.</p></section>
+        <section><h3>Work is shared across the team</h3><p><b>{number(inputs.monitorPharmacistMinutes)} pharmacist minutes</b> and <b>{number(inputs.monitorSupportMinutes)} staff minutes</b> per active month, at loaded hourly costs of {money(inputs.pharmacistWage)} and {money(inputs.supportWage)}.</p><p>Recurring labor: <b>{money((inputs.monitorPharmacistMinutes * inputs.pharmacistWage + inputs.monitorSupportMinutes * inputs.supportWage) / 60)}</b> per active month. Clinical time = {number(inputs.monitorPharmacistMinutes)} pharmacist + {number(inputs.qualifiedSupportMinutes)} qualifying supervised staff minutes. The other {number(inputs.monitorSupportMinutes - inputs.qualifiedSupportMinutes)} staff minutes are excluded from the threshold; no minute is charged twice.</p></section>
       </div>
-      <p className="sim-finance-assumption-note">Applied technology costs: {money(inputs.deviceCost)} per new device, {money(inputs.monthlyTechnologyCost)} software + {money(inputs.monthlyConnectivityCost)} connectivity per active patient-month, and {money(inputs.monthlyPlatformBaseCost)} platform base fee per provider-month × {number(inputs.platformProviderCount)} provider(s). The common base fee is included once in each program; it is not an extra integration invoice. Prices are benchmarks; connectivity and local implementation costs remain assumptions.</p>
+      <p className="sim-finance-assumption-note">The default adapts the cashbook’s 10% pharmacist / 90% technician service mix while retaining the prior 30-minute monthly workload. Base wages of $55/hour and $24/hour are business-plan assumptions; benefits are added once using the BLS healthcare compensation ratio. Staff clinical eligibility is an explicit scenario assumption, not established by a technician credential or CDTA alone.</p>
+      <p className="sim-finance-assumption-note">Each offer uses {number(inputs.offerMinutes)} pharmacist + {number(inputs.offerSupportMinutes)} staff minutes; each new start uses {number(inputs.onboardingMinutes)} pharmacist + {number(inputs.onboardingSupportMinutes)} staff onboarding minutes. Medication review and deprescribing follow-up remain {number(inputs.reviewMinutes)} pharmacist minutes per completed review. Staff hours include these tasks as well as monthly service. Valued labor is a resource cost, not a prediction of immediate payroll savings.</p>
+      <p className="sim-finance-assumption-note">Applied technology costs: {money(inputs.deviceCost)} one-time vendor/device package per new start, {money(inputs.monthlyTechnologyCost)} technology bundle + {money(inputs.monthlyConnectivityCost)} separate connectivity per active patient-month, and {money(inputs.monthlyPlatformBaseCost)} platform base fee per provider-month × {number(inputs.platformProviderCount)} provider(s). The default cashbook package assumes device, software and cellular connectivity are included in its $90 one-time and $12 monthly charges; separate connectivity and base fees are zero. In-house onboarding labor is separate. Avoid adding fees for components already included. Any common base fee is counted once in each program.</p>
       {payment.notes?.length > 0 && <ul className="sim-payment-notes">{payment.notes.map(note => <li key={note}>{note}</li>)}</ul>}
       <p className="sim-finance-assumption-note">Medication effects are {inputs.clinicalMode === 'illustrative' ? 'illustrative scenario assumptions, not measured benefits' : inputs.clinicalMode === 'none' ? 'set to zero by assumption' : 'not estimated'}. {inputs.perspective === 'clinic' ? 'The clinic perspective excludes medication savings from its financial benefit.' : `The consolidated perspective assumes ${percent(inputs.retainedDrugSavingsShare)} of modeled medication savings is retained.`} <Link to="/calculator">Review or change the shared assumptions →</Link></p>
-      <details className="sim-finance-sources"><summary>Financial sources and limitations</summary><ul>{FINANCIAL_EVIDENCE.map(source => <li key={source.id}><a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a><p>{source.description}</p></li>)}</ul></details>
+      <details className="sim-finance-sources"><summary>Financial sources and limitations</summary><ul>{FINANCIAL_EVIDENCE.map(source => <li key={source.id}>{source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a> : <strong>{source.title}</strong>}<p>{source.description}</p>{source.reference && <p>{source.reference}</p>}</li>)}</ul></details>
     </details>
   )
 }
 
 const costLabels = [
-  ['reviews', 'Added MTM reviews'], ['offers', 'Pharmacist RPM offers'], ['onboarding', 'New-start onboarding'],
-  ['pharmacistMonitoring', 'Pharmacist monitoring'], ['technicalSupport', 'Nonclinical technical support'],
-  ['physicianReferrals', 'Usual physician referrals'], ['devices', 'New devices'], ['software', 'Patient software'],
+  ['reviews', 'Added pharmacist MTM reviews'], ['offers', 'Pharmacist RPM offers'], ['supportOffers', 'Staff recruitment assistance'],
+  ['onboarding', 'Pharmacist onboarding'], ['supportOnboarding', 'Staff onboarding'],
+  ['pharmacistMonitoring', 'Pharmacist monitoring'], ['technicalSupport', 'Non-pharmacist RPM service'],
+  ['physicianReferrals', 'Usual physician referrals'], ['devices', 'One-time vendor/device package'], ['software', 'RPM technology bundle'],
   ['connectivity', 'Connectivity'], ['platformBase', 'Common platform base fee'], ['otherFixed', 'Other fixed program costs'], ['addedFixed', 'Added integration fixed costs'],
 ]
 
 function FinancialResultsTable({ run }) {
   const { baseline, integrated, delta } = run.actual
   const receiptRows = [
+    ['pharmacistHours', 'Pharmacist hours, all tasks', number],
+    ['supportHours', 'Non-pharmacist staff hours, all tasks', number],
     ['qualifiedMonths', 'Reimbursement-qualified months', number],
     ['qualifiedSetups', 'New setups qualifying once', number],
     ['monthlyRevenue', 'Recurring external receipts', money],
