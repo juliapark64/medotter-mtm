@@ -72,7 +72,7 @@ export default function IntegrationDemo() {
           ))}
         </div>
         <div className="mt-8 rounded-2xl bg-teal-50 border border-teal-200 p-6 flex flex-col sm:flex-row sm:items-center gap-5">
-          <div className="flex-1"><h2 className="font-bold text-teal-900 mb-2">Follow a synthetic patient through the study</h2><p className="text-sm text-teal-800 leading-relaxed">Compare physician-led RPM with nurse/assistant support against the same service with added pharmacist recruitment and medication review. Synthetic patient IDs, task costs, and assumptions match the study calculator.</p></div>
+          <div className="flex-1"><h2 className="font-bold text-teal-900 mb-2">Follow a synthetic patient through the study</h2><p className="text-sm text-teal-800 leading-relaxed">Follow the same patient through physician-delivered and pharmacist-delivered RPM. Each team has its own task and cost ledger. Deprescribing and recruitment remain separate research scenarios.</p></div>
           <Link to="/simulation" className="btn-primary justify-center shrink-0">Open Microsimulation →</Link>
         </div>
         <div className="text-center mt-7">

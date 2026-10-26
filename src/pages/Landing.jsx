@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom'
 const STUDY_QUESTIONS = [
   {
     step: '01',
-    title: 'Expand RPM participation',
-    desc: 'How many additional people could start RPM when pharmacists add recruitment through medication review?',
+    title: 'Compare RPM delivery',
+    desc: 'For the same RPM patients, how do physician-delivered and pharmacist-delivered services differ in staffing cost?',
   },
   {
     step: '02',
     title: 'Support deprescribing',
-    desc: 'Could added review help appropriately reduce medications for existing and newly recruited RPM participants?',
+    desc: 'A separate clinical scenario explores pharmacist medication review and short-term deprescribing outcomes.',
   },
   {
     step: '03',
@@ -18,21 +18,21 @@ const STUDY_QUESTIONS = [
   },
   {
     step: '04',
-    title: 'Estimate added financial return',
-    desc: 'Do additional RPM collections cover the added clinic costs? Medication reductions and drug-cost offsets are reported separately.',
+    title: 'Compare program margins',
+    desc: 'Show each delivery model’s revenue, costs and margin, then estimate the financial impact of switching.',
   },
 ]
 
 const PATHWAYS = [
   {
-    title: 'Physician-led RPM baseline',
-    description: 'Physicians manage RPM with nurse and medical-assistant support. This baseline has no pharmacist involvement.',
-    steps: ['Existing participants and physician referrals', 'Nurse and assistant onboarding', 'Physician clinical review and nurse follow-up', 'Usual-care outcomes and clinic costs'],
+    title: 'Physician-delivered RPM',
+    description: 'Physicians provide clinical RPM with medical-assistant support. A nurse-supported workflow is available as a sensitivity.',
+    steps: ['Common enrolled RPM cohort', 'Assistant onboarding and coordination', 'Physician clinical monitoring and follow-up', 'Complete physician-program budget'],
   },
   {
-    title: 'With pharmacist integration',
-    description: 'The same clinic care team continues, with added pharmacist recruitment, medication review, and deprescribing support.',
-    steps: ['Physician-led RPM continues', 'Added MTM review and RPM offers', 'Unique additional starts and deprescribing', 'Added financial surplus or deficit'],
+    title: 'Pharmacist-delivered RPM',
+    description: 'Pharmacists take over clinical RPM with technician support. Required physician oversight is costed separately.',
+    steps: ['The same patients and service months', 'Pharmacist and technician onboarding', 'Pharmacist clinical monitoring and follow-up', 'Complete pharmacist-program budget'],
   },
 ]
 
@@ -54,7 +54,7 @@ export default function Landing() {
               <span className="block"><span className="text-teal-300">Studied</span> Together.</span>
             </h1>
             <p className="text-lg md:text-xl text-blue-100 mb-10 leading-relaxed max-w-xl">
-              Explore how pharmacist recruitment and deprescribing could expand remote blood pressure monitoring in a clinic serving Original Medicare patients.
+              Explore the financial impact of pharmacists taking over remote blood pressure monitoring in a clinic serving Original Medicare patients.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link to="/integration-demo" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white text-brand-700 font-bold text-base hover:bg-blue-50 transition shadow-lg">
@@ -75,7 +75,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { value: 'Added Value', label: 'Contribution of pharmacist integration' },
+              { value: 'Same Patients', label: 'Two independent delivery budgets' },
               { value: '12 Months', label: 'Budget horizon' },
               { value: 'MTM + RPM', label: 'Integrated care workflow' },
               { value: 'Modeled Results', label: 'Literature-informed scenarios' },
@@ -94,7 +94,7 @@ export default function Landing() {
           <div className="text-center mb-14">
             <h2 className="section-title">The Questions Behind the Study</h2>
             <p className="section-sub">
-              A planned study of recruitment, deprescribing, and clinic financial feasibility under Original Medicare fee-for-service.
+              A planned study of physician-delivered versus pharmacist-delivered RPM, with deprescribing and recruitment explored separately.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -112,9 +112,9 @@ export default function Landing() {
       <section className="py-20 bg-white" id="study-pathways">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="section-title">One Program. Added Pharmacist Support.</h2>
+            <h2 className="section-title">Same Patients. Two Ways to Deliver RPM.</h2>
             <p className="section-sub">
-              The same eligible population and routine physician/nurse/assistant service are modeled with and without added pharmacist support. Overlapping referrals never create duplicate RPM participants. A separate staffing sensitivity explores pharmacist/technician delivery.
+              Match enrollment, monitoring months, reimbursement and technology costs. Compare each team’s own work and spending. The pharmacist program does not carry forward the physician program’s delivery budget.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -136,7 +136,7 @@ export default function Landing() {
           <div className="mt-8 rounded-2xl bg-brand-50 border border-brand-200 p-6">
             <h3 className="font-bold text-brand-800 mb-2">Explore the current tools</h3>
             <p className="text-sm text-brand-800 leading-relaxed">
-              The calculator and interactive microsimulation share one model. Follow synthetic patients from medication review and RPM offers through monitoring, possible medication reduction, and financial contribution. Literature informs selected inputs; remaining effects and costs are explicit assumptions. No study patient data have been collected.
+              The calculator and interactive microsimulation share one model. Follow each synthetic patient through both delivery teams and inspect their tasks, costs and collections. Literature informs selected inputs; workload and other unmeasured quantities remain explicit assumptions. No study patient data have been collected.
             </p>
             <Link to="/simulation" className="btn-primary inline-flex mt-5">Explore the Microsimulation →</Link>
           </div>

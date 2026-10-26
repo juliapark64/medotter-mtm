@@ -120,3 +120,9 @@
 .study-card > h3 { margin-top:28px; font-size:15px; font-weight:750; color:#234b75; }
 .study-team-summary .study-table td:last-child { color:#173d68; font-weight:500; }
 @media(max-width:700px) { .study-pathway-summary { grid-template-columns:1fr; padding:15px; gap:12px; } }
+
+.study-metrics.study-two-programs, .study-break-even.study-two-programs { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.study-table td:last-child { color:#173d68; font-weight:600; }
+.study-table small { display:block; font-size:10px; color:#718197; margin-top:5px; }
+.study-explanation a { color:#164fa0; text-decoration:underline; }
+@media(max-width:700px) { .study-metrics.study-two-programs, .study-break-even.study-two-programs { grid-template-columns:1fr; } }

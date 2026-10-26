@@ -1,294 +1,166 @@
-# MTM–RPM integration study: methods and evidence
+# RPM delivery comparison: methods and evidence
 
-This is a hypothetical planning study of adding MTM recruitment and medication review to an existing RPM service at a clinic serving **Original Medicare fee-for-service patients**. The calculator and synthetic patient simulation must use the same scenario assumptions and financial perspective. Neither is an observed study of Kaiser, a clinical decision tool, or evidence that integration causes savings. The AMCP abstract and Word endpoint plan are separate artifacts and are not modified by this implementation.
+This hypothetical clinic financial study compares **physician-delivered and pharmacist-delivered RPM for the same enrolled Original Medicare patients**. The question is how replacing routine RPM delivery changes the clinic's allocated costs and operating margin. It is not a head-to-head referral contest or a claim that adding a second complete team is beneficial. The AMCP abstract and Word one-pager remain separate, unchanged artifacts.
 
-The shared engine is [integrationStudy.js](../src/lib/integrationStudy.js), model `mtm-rpm-additive-integration`, version `6.0.0`, export schema `6`, in website application `7.0.0`. Its input definitions are the authoritative defaults and validation limits. Calculator and simulation share recruitment, role-specific task staffing, monthly service costs, code-linked reimbursement benchmarks, one-time setup collections and deprescribing accounting. Fresh website sessions select `physician-led-minor`: physician-led RPM with nurse/medical-assistant support in both pathways, illustrative remote MTM recruitment, and MINOR-informed 45-day deprescribing. The engine base input object retains the illustrative clinical mode; the fresh-session preset explicitly selects MINOR.
+The calculator and microsimulation share [integrationStudy.js](../src/lib/integrationStudy.js): model `rpm-delivery-comparison`, engine **7.0.0**, export schema **7**, website **8.0.0**. Input definitions and the saved scenario specify the actual run. No patient data have been collected, fitted or used to validate the proposed workflows.
 
-## Comparison and denominators
+## Design, cohort and timing
 
-The comparator is **physician-led RPM with registered-nurse and medical-assistant support, with no pharmacist or pharmacy-technician labor**. It includes existing RPM participants, usual physician recruitment, routine monitoring and medication changes under usual physician care. In the primary `shared-clinic` staffing mode, the integrated pathway retains this care team and adds pharmacist recruitment, medication review and deprescribing support, with pharmacy-technician assistance for added outreach. Integration may add new RPM starts and change medication-review outcomes among existing participants. Show these contributions separately; an existing participant is not a new start.
+The primary `comparisonMode = delivery` assigns every member of the common enrolled cohort `N` to both arms. Physician referral and pharmacist recruitment probabilities do not select patients or generate recruitment costs in this mode. The default `N = 1000` is not a denominator of 1,000 eligible people awaiting enrollment.
 
-The optional `integrated-team` staffing mode replaces the integrated pathway's routine RN/medical-assistant work with the separately specified pharmacist/technician workflow while retaining physician clinical management. It combines the pharmacist service intervention with a staffing substitution and is therefore a sensitivity analysis, not the primary estimate of adding recruitment and review. Baseline staffing is physician/nurse/assistant in both modes. Neither staffing mode has an automatic effect on recruitment probabilities or clinical outcomes.
-
-The 11.8% physician-referral value is an investigator-transferred baseline assumption, applied equally in both pathways. The source's physician-attributed referral measure does not establish physician-exclusive referrals, a validated annual patient probability, or the downstream staff providing care. [1] Hailu et al. describe physician and staff involvement in RPM, but do not validate the specific minutes entered here or estimate the national prevalence of physician-only delivery. [24]
-
-Define the RPM-eligible population once. Apply additional MTM recruitment only to the eligible population remaining after existing participation and usual recruitment, according to the model's stated sequence. Offer and review probabilities are conditional on their preceding stages. A completed review is not an offer, an offer is not consent, and initiation means at least one transmitted reading. Charge recruitment work even when it does not produce a start. Do not add alternative-pathway estimates together or count the same patient twice.
-
-Counts per 1,000 use the common RPM-eligible Original Medicare clinic population. This clinic analysis does not use a health-plan PMPM denominator. A recruitment parity threshold is not a financial break-even threshold.
-
-For population `N`, existing RPM share `e`, physician referral probability `r`, and physician initiation probability `qA`, expected existing participants are `N × e` and usual new starts are `N × (1 − e) × r × qA`. In the retained `mtm-offer` pathway, completed integration reviews are `N × f × c`, including people already receiving RPM and people who never initiate RPM.
-
-By default, `recontactUptake = null`: unsuccessful physician referrals are not offered another chance through MTM. With independent review/offer eligibility, added starts in `mtm-offer` mode are then `N × (1 − e) × (1 − r) × f × c × o × qB`. Duplicate offers to successful physician initiators still incur work without creating another episode. Entering a numeric recontact probability enables a separate retry opportunity for unsuccessful physician referrals; zero means an unsuccessful offer still takes staff time. This is a simplified recruitment sequence, not a measured interaction between channels.
-
-### Primary remote recruitment scenario and HealthPartners alternative
-
-The primary preset uses `recruitmentMode = mtm-offer`, with no required in-person encounter or 60-minute intake. Its default review is **10 pharmacist minutes**, an investigator-selected resource allowance that includes associated documentation and follow-up, not a measured mean or a proven adequate clinical duration. The targeted share, offer probability and transfer of historical completion/uptake benchmarks remain assumptions. The clinical task allocation and recruitment rates must be calibrated separately; a remote device shipment does not establish an enrollment rate or eliminate clinic clinical work.
-
-The optional HealthPartners-informed pathway preserves the source's distinct intake process. It is a transferred sensitivity, not the default operating template for a clinic using delivered devices.
-
-`recruitmentMode = healthpartners` models a targeted intake pathway with distinct stage denominators:
+An assumed existing fraction `e = 0.05` receives service from January. All other patients start at the beginning of `s = 7`, with monthly continuation `ρ = 0.98`. These timing and retention inputs are assumptions. New starts, active months, setup qualification and monthly qualification are matched across arms. Patients receive the first service month, then may discontinue; restarting RPM is not modeled.
 
 ```text
-Targeted patients = N × f
-Completed pharmacist intakes = targeted patients × intakeAttendance
-Potential first transmissions after intake = intakes × activationAfterIntake
-Added starts, recontact disabled = N × (1 − e) × (1 − r)
-                                  × f × intakeAttendance × activationAfterIntake
+G(m, ρ) = Σ[k = 0 to m − 1] ρ^k
+Existing patients E = N × e
+New starts S = N × (1 − e)
+Expected active patient-months M = E × G(12, ρ) + S × G(13 − s, ρ)
+Expected patients active at the review month A = E × ρ^(s − 1) + S
 ```
 
-The HealthPartners scenarios use `intakeAttendance = 385/1423` and `activationAfterIntake = 0.80` from HyperLink 3. [21] Intake occurred within six weeks of the index encounter; activation is conditional on attending. The CMR completion (`c`), post-review offer (`o`) and pharmacist-offer uptake (`qB`) inputs do not multiply this pathway. Completed intake is represented by `reviewCompleted` for shared medication-review logic. Existing RPM participants and physician initiators can receive a review without creating a second episode.
+The budget includes only months 1–12. A 45-day clinical outcome can extend past that budget; it must not be described as an observed year-one event. Clinical follow-up and financial exposure are separate. Sensitivities should include all-existing patients, earlier/later starts and alternative retention, because the default 95% new-start mix creates substantial first-year onboarding costs.
 
-The default targeted share `f = 0.5`, transfer to this clinic population, and independence from usual physician recruitment remain investigator assumptions. The source studied uncontrolled hypertension and one large clinic used nurse practitioners with RN support. Its rates are neither Original Medicare subgroup estimates nor causal estimates of extra enrollment from adding pharmacists. The modeled single starting month compresses the source's intake window.
+## Delivery work and cost accounting
 
-Every targeted patient incurs the configured outreach allowance, including nonattendees. Every completed intake incurs `intakeMinutes`, default **60 pharmacist minutes**, whether or not it produces RPM activation. This allocation reflects the protocol's offered one-hour visit, not a measured mean duration. Intake replaces the legacy review bundle and includes clinic device education for pharmacist-initiated starts. No second clinic onboarding bundle is charged for those starts; the vendor/device charge remains separate. Usual physician-start onboarding remains in both arms. A duplicate intake cannot erase that usual-care cost.
-
-The HealthPartners-only preset leaves clinical outcomes unestimated; the MINOR-only preset restores the illustrative MTM completion, offer and uptake stages. The combined preset and optional extension explicitly load both studies. Presets reset the relevant study parameters while retaining editable clinic and financial assumptions. The no-added-recruitment scenario suppresses pharmacist activation while retaining targeted outreach and completed-intake/review costs. The intake-attendance break-even calculation varies attendance while leaving other applied assumptions fixed; attendance is not a universal offer rate.
-
-## Timing and clinical units
-
-Calendar-year costs count only resources used during months 1–12. A late entrant receives fewer first-year service months than a January entrant. Clinical follow-up and the financial horizon are separate. A clinical endpoint for a late entrant can occur after the budget year and must not be reported as an observed event within year one.
-
-The current engine uses one representative new-start/review month, default **month 7**, rather than staggered monthly arrivals. Existing participants start service in month 1; new participants start at the beginning of `startMonth`. For `m` available months and monthly RPM continuation `ρ`, expected service months per participant are `Σ ρ^k`, for `k = 0, …, m − 1`. Everyone receives the first service month. Existing participants must still be active at the review month to enter clinical assessment; their expected availability is `ρ^(startMonth − 1)`. Medication persistence after an action is independent of later RPM discontinuation in this model.
-
-Keep active service months, months with readings, and unique patients distinct. A missing reading can still require staff outreach. The literature's mean monthly reading participation does not supply the probability of meeting a requirement for readings in every consecutive two-month block.
-
-### MINOR-informed short-term outcome
-
-`clinicalMode = minor` uses the patient-level 45-day outcome from the full MINOR trial: `minorActionBaseline = 11/161` and `minorActionIntegrated = 31/161`. [22] The trial enrolled adults aged at least 60 using antihypertensives, excluded poor/nonadherence and inability to undertake home BP monitoring, and added pharmacist recommendations to monitoring and GP review. The enhanced probability applies only after a completed added review/intake; other comparable monitored patients retain the usual-care probability.
-
-`minorEligibleShare`, default 1 in the study-informed scenario, is an explicit assumption that the modeled monitored population is comparable. It is not an estimate of the fraction of all Original Medicare patients who should undergo deprescribing. The earlier `lowBpShare` and illustrative action inputs are inactive. Adding a 23% low-BP gate to the full trial's rates would change the denominator incorrectly.
-
-The primary clinical result counts **patients with antihypertensive deprescribing at 45 days**. The complete-case trial proportions are applied to patients active at the review month; no additional loss to follow-up during those 45 days is modeled. It does not establish exactly one complete medicine discontinuation, a dose reduction's dollar value, or 12-month maintenance. With `minorExtrapolation = off`, `clinical.actions` is estimable but `clinical.sustainedAt12Months`, `clinical.medicationMonths` and `drugSavings` are null. Clinic collections, costs and surplus remain estimable. Unknown longer-term results are not recorded as zero.
-
-The optional `minorExtrapolation = assumed` scenario adds **one medicine-equivalent per patient outcome**, the separate persistence input, and the assumed per-medicine-month cost. Monthly accounting conservatively places the 45-day assessment two months after review (`startMonth + 2`); no medication offset is credited earlier. Budget exposure is clamped to zero after month 12. The persistence clock starts at that assessment, so its 12-month endpoint is approximately 13.5 months after review. Transferring Singapore's 69.4% estimate to this new time origin, with constant subsequent restart risk, is an extrapolation—not a measured MINOR outcome. Do not multiply unrelated short-term persistence estimates into this extension as if they were sequential observations from one cohort.
-
-An older indexed MINOR PDF abstract reports 9 controls (5.6%). The current publisher/PubMed abstract, results table and author's institutional record support 11/161 (6.8%). The scenario uses the latter concordant counts and retains this discrepancy in its evidence notes. [22,23]
-
-### Retained illustrative and null scenarios
-
-The `no-enhanced-deprescribing` preset retains the usual physician-care action probability after pharmacist review. It removes the assumed improvement per comparable assessed patient, while more RPM participants may still produce more usual-care actions. It does not impose zero total added outcomes. The distinct `conservative` preset explicitly sets outcomes to zero in both arms and is labeled accordingly.
-
-The earlier **illustrative** mode uses a usual-program action probability of **10%**, an integrated probability of **30%** after a completed review, and **one medication reduction per patient with an action**. These are investigator assumptions, not trial estimates. This mode alone uses the low-BP gate. Patients without added review retain the usual-care probability. The explicit **none** mode sets both arms' clinical effects and drug savings to zero while retaining review/intake and program costs. This is a conservative scenario, not evidence that the clinical effect is zero.
-
-The **unestimated** mode, or missing required clinical inputs, produces unavailable clinical outcomes and drug savings rather than replacing unknown effects with zero. Clinic net financial benefit remains calculable from the supplied service costs and collections because medication savings are excluded from the clinic financial endpoint. Unknown clinical inputs and an explicitly assumed zero effect are different scenarios.
-
-The single-medication assumption makes patient and medication counts numerically equal in that scenario. It does not establish their equivalence in practice. If multiple drugs, dose reductions, substitutions, or restarts are introduced, track medicines and patients separately. For a genuine patient endpoint, count each patient once even if several medications change.
-
-The optional **69.4%** persistence assumption concerns people who already underwent deprescribing. The model converts it to monthly medication retention as `0.694^(1/12)`, imposing a constant monthly restart risk. The legacy illustration starts exposure in its action month; the MINOR extension starts at its delayed assessment month. Exposure is truncated at the budget-year boundary. These time conventions and constant risk are additional assumptions. An end-of-follow-up reduction does not establish a full year of drug savings.
-
-No numeric symptom-resolution, fall-prevention, hospitalization-prevention, or cardiovascular-event benefit is established by this model. Do not substitute low home BP for confirmed inappropriate treatment. Assessment, clinical suitability, patient agreement, and implementation remain separate concepts even when represented by a combined scenario probability.
-
-## Evidence contract
-
-The references support specific quantities in specific populations. Transferred values remain assumptions about applicability; a citation does not validate the entire model.
-
-| Reference quantity | What the source supports | Modeling restriction |
+| Work per active month, unless stated | Physician arm | Pharmacist arm |
 | --- | --- | --- |
-| HealthPartners intake attendance 385/1,423 (27.1%) | Telehealth-arm participants attending within six weeks. [21] | Conditional on study enrollment; targeting and transfer to Original Medicare remain assumed. |
-| First transmission after intake 80% | At least one home BP reading among intake attendees. [21] | Conditional activation, not overall recruitment or monthly billability; not multiplied by legacy CMR/offer inputs. |
-| Offered intake duration one hour | Protocol allocation for review, counseling and possible monitor initiation. [21] | Charging 60 minutes per attendee is an allocation assumption, not a measured mean; includes clinic device education. |
-| MINOR patient-level deprescribing 31/161 versus 11/161 | Full-cohort 45-day outcome. [22,23] | No low-BP multiplier; no automatic one-drug or annual-persistence interpretation. |
-| Physician referral 11.8% | Mean physician-level referral rate in the UCSD study, using October 2020–October 2022 records. [1] | Not an observed annual patient probability. Annual application is an explicit scenario choice. |
-| Initiation 53% | UCSD initial uptake defined as at least one transmission after referral. [2] | Applying this to MTM offers, a different population, or the recruitment-year horizon is a transfer assumption. No automatic age adjustment. |
-| Review completion 84% | Historical MA-PD CMR completion benchmark in the 2024 Star Ratings, within a defined MTM measure population. [3] | Not the MTM-eligible share of all RPM candidates or a current local completion estimate. Transferring an MA-PD benchmark to this Original Medicare cohort is an explicit applicability assumption. |
-| Monthly reading participation 49% | Mean monthly transmission probability over one year, conditional on initial uptake. [2] | Not annual retention or the share meeting all six consecutive two-month reading criteria. |
-| Low home BP approximately 23% | MINOR baseline report: 74/322 older Brazilian participants, with or without symptoms. [4] | Exploratory prevalence only; it does not establish that every patient needs deprescribing or has symptoms to improve. |
-| Uncontrolled BP 61.18% | The same report gives 61.18% and n=166 among N=322. [4] | Internally inconsistent; do not use as a fixed clinical input or silently repair the numerator. |
-| Prescription reduction 28.6% | MINOR hypotension subgroup: reduction in prescriptions, with 37 intervention and 35 control patients. [5] | Not a probability that a patient undergoes deprescribing. It does not justify the model's 10% or 30% action probabilities. |
-| Symptom reduction 64.9% versus 20% | Short-term reported symptom reduction in that subgroup. Both groups received home monitoring; pharmacist-assisted review was compared with physician review. [5] | Not verified complete resolution at 12 months, an RPM-versus-no-RPM effect, or an avoided-admission rate. Do not apply to asymptomatic patients. |
-| Baseline medicines: two | OPTIMISE reports a median of two antihypertensives in selected patients aged ≥80. [6] | A median is not the mean needed to estimate aggregate medication counts. |
-| Deprescribing persistence 69.4% | Singapore retrospective cohort: 12-month maintenance among 108 patients aged ≥60 who had already been deprescribed. [7] | Patient-level conditional persistence, not per-drug persistence or an RPM effect. |
-| SBP difference 9.7 mmHg | HyperLink between-group difference in mean SBP change at 12 months. [8] | Not the probability that an individual achieves a 10-mmHg decrease; it cannot identify responder counts. |
+| Clinical management | 20 physician minutes | 20 pharmacist minutes |
+| Nonclinical logistics | 10 medical-assistant minutes | 10 pharmacy-technician minutes |
+| Separate physician oversight | No second charge beyond entered physician work | 1 minute, costed and excluded from qualifying clinical time |
+| Onboarding per unique new start | 20 medical-assistant minutes | 2 pharmacist + 18 pharmacy-technician minutes |
+| Separate added medication review in primary analysis | None | None |
 
-MINOR used short-term home BP measurement in Brazilian primary care, not a year-long US RPM service. Its subgroup comparison does not isolate the effect of providing RPM because both arms received home monitoring. These sources do not establish a statistical interaction between MTM and RPM or the study's modeled financial benefits.
+Every duration is an **investigator task-allocation assumption**, not a published average or a CMS staffing requirement. The 20 pharmacist minutes include routine medication management. The primary analysis does not charge a separate review for that same work. Generic supervision is distinct from billable patient-specific management. The one-minute oversight allowance does not demonstrate that all actual supervision or escalations can be completed in that time.
 
-## Clinic financial boundary
+Routine physician/nurse/assistant service costs are replaced in the pharmacist arm. Only its explicitly entered physician oversight remains; the model does not charge both full delivery teams. Qualifying nurse/technician minutes are subsets of costed work, never extra minutes. Onboarding and separately costed review are excluded from recurring management time.
 
-The model uses one financial perspective: a **clinic serving Original Medicare fee-for-service patients**. Its operating margin equals RPM collections received by the clinic minus program resource costs. All modeled collections count toward that margin after billing qualification and collection realization. There is no additional external-payer fraction or arbitrary 50% reduction. This is not consolidated insurer-plus-clinic accounting and does not estimate Medicare Advantage or commercial contracts.
+Let `wD`, `wR`, `wA`, `wP`, `wT` be loaded hourly costs for physician, RN, medical assistant, pharmacist and pharmacy technician. At the primary allocation:
 
 ```text
-Clinic operating margin = monthly RPM collections + setup collections − program costs
-Added clinic financial surplus = integrated-program margin − current-program margin
-Surplus per 1,000 eligible patients = added clinic financial surplus × 1,000 / N
+Physician-arm labor = [M × (20wD + 10wA) + S × 20wA] / 60
+Pharmacist-arm labor = [M × (20wP + 10wT + 1wD)
+                        + S × (2wP + 18wT)] / 60
+Technology cost = S × deviceCost
+                  + M × (monthlyTechnologyCost + monthlyConnectivityCost)
+Shared annual platform cost = 12 × monthlyPlatformBaseCost × platformProviderCount
+Total arm cost Cj = laborj + technology + shared platform + fixedCost
+                   + pharmacist-arm transition cost, if applicable
 ```
 
-The exported `perspective` is fixed to `clinic`. The earlier `externalPayerShare` and `retainedDrugSavingsShare` inputs have been removed. `netFinancialBenefit` equals `operatingMargin` in each arm; the difference is the added clinic financial surplus. `drugSavings` remains a separately reported modeled medication-cost offset. It is never automatically clinic revenue, even when deprescribing assumptions are enabled. Clinical outcomes and medication offsets can remain unknown without making the clinic margin unknown.
+These equations describe default delivery work. Edited minutes replace the displayed coefficients; optional extra review adds `completed reviews × reviewMinutes × wP / 60`. The assumed $1,000 pharmacist transition cost occurs once in the year-one model. The established-program sensitivity sets existing share to 100%, review/start month to January and transition cost to zero; it has no new setup or onboarding episodes.
 
-### Reimbursement modes and time
+Salary allocation is a resource cost, not necessarily an avoidable cash expense. Released physician hours are capacity; the model does not also monetize them as extra visit revenue. Fixed staffing, minimum shifts, capacity constraints, hiring steps, recruitment expenses and any additional visit revenue require separate data. Equal service time and matched participation isolate a staffing-cost mechanism, but do not establish clinical equivalence.
 
-The default **Medicare 2026 benchmark** mode links the monthly allowed amount to modeled qualifying clinical management time across the team. Rates are national nonfacility amounts from MedPAC Table 4-8, not a quote for Kaiser, a hospital outpatient department, Medicare Advantage or a commercial contract. [10] Geographic adjustment, billing practitioner, conversion factor, contract terms and qualification affect actual receipts. CMS has separate 2026 conversion factors for qualifying APM participants and other practitioners. [11]
+### Compensation and vendor assumptions
 
-| Qualifying team clinical minutes per active month | Assumed management code | Device/data benchmark | Monthly allowed-amount benchmark |
-| --- | --- | ---: | ---: |
-| Less than 10 | None | $52.11 | $52.11 |
-| 10 to less than 20 | 99470 | $52.11 | $78.16 |
-| 20 to less than 40 | 99457 | $52.11 | $103.88 |
-| 40 to less than 60 | 99457 + one 99458 | $52.11 | $145.30 |
-| 60 or more | 99457 + two 99458 | $52.11 | $186.72 |
+| Role | May 2025 national mean wage/hour | Derived loaded cost/hour |
+| --- | ---: | ---: |
+| Family medicine physician | $122.99 | $174.80 |
+| Registered nurse | $48.76 | $69.30 |
+| Medical assistant | $22.17 | $31.51 |
+| Pharmacist | $67.75 | $96.29 |
+| Pharmacy technician | $22.41 | $31.85 |
 
-The engine conservatively caps management add-ons at two while charging all entered service minutes. It does not optimize billing above that cap. The device component uses one of **99445** (2–15 transmission days) or **99454** (16–30 days), both $52.11; they are alternatives, not additive codes. Likewise, 99470 and 99457 are alternatives. [12] A month with fewer than 10 management minutes can still produce the device/data allowance if its separate device requirements are satisfied; it does not produce a management fee.
+Base wages come from [BLS Table 1](https://www.bls.gov/news.release/archives/ocwage_05152026.htm). Loaded costs multiply each wage once by **49.93/35.13 = 1.42129234**, the June 2026 private-industry healthcare compensation-to-wage ratio in [BLS Table 4](https://www.bls.gov/news.release/archives/ecec_09092026.htm). The common industry factor, cross-year transfer and national occupation proxies are assumptions; these are not measured local benefit packages. Do not add benefits again. Pharmacy-technician wages do not establish advanced-technician pay or clinical billing eligibility. Cashbook wages and payroll escalation are excluded.
 
-**Custom benchmark** mode uses investigator-entered monthly and setup allowed amounts for a local payment sensitivity, with the same Original Medicare clinic boundary and qualification/collections accounting. **No reimbursement** mode produces zero monthly and setup collections while retaining service costs. It does not remove drug-cost offsets when these are separately enabled.
+The user-supplied, unpublished *RPM Cash Book.xlsx* informs an assumed vendor package of **$90 per unique new start and $12 per active patient-month**. The user confirmed device/software/cellular inclusion and separate clinic labor. It is not a verified Prevounce quote or published market average. Existing patients do not incur another device/setup package. Active unpaid months still incur the monthly fee. Additional connectivity and platform fees default to zero to avoid duplication; different contract terms need explicit revised inputs. The private workbook is not distributed.
 
-In exported inputs, `reimbursementMode` is `medicare2026`, `custom` or `none`. `monthlyRevenueBenchmark` and `customSetupRevenueBenchmark` are used only in custom mode; changing them does not override Medicare's time-linked benchmark. `setupQualificationShare` is distinct from `qualificationShare`. `monthlyTechnologyCost` is the per-patient vendor technology package, `monthlyConnectivityCost` is any additional per-patient connectivity charge, and an additional annual subscription is `12 × monthlyPlatformBaseCost × platformProviderCount`. Included package components must not be charged again.
+Both arms include an assumed **$5,000/year** other overhead; pharmacist delivery adds **$1,000** transition expense. Neither number is empirically estimated. Manufacturer/retail component-price scenarios remain price sensitivities, not interchangeable complete-service contracts.
 
-The payment schedule is calculated for each pathway's actual staffing mode. In the main shared clinic workflow, qualifying minutes are **physician clinical treatment-management minutes + the qualifying subset of RN minutes**: default 3 + 17 = **20**, giving the same potential payment tier in both pathways. The physician input represents patient-specific clinical review and treatment management, with associated clinical oversight included; generic administrative supervision alone does not qualify. The default 10 medical-assistant minutes are nonclinical assistance and do not enter the tier. `qualifiedNurseMinutes` is a subset of `monitorNurseMinutes`, not extra labor.
+## Reimbursement and financial endpoints
 
-In the optional integrated-team pathway, qualifying minutes are **physician clinical minutes + pharmacist clinical minutes + qualifying technician minutes**: default 3 + 3 + 17 = **23**. The 27 total technician minutes include 17 assumed qualifying clinical minutes and 10 nonclinical minutes. The 23-minute total remains in the same 20-minute tier as the baseline. `qualifiedSupportMinutes` is a subset of `monitorSupportMinutes`, never an additional workload or second charge. The optional workflow has 33 total recurring labor minutes including the physician; the 9:1 ratio describes only its 27 technician and 3 pharmacist minutes.
+The perspective is the clinic serving **Original Medicare fee-for-service patients**. Collections include the total allowed amount actually realized from Medicare and patient/supplemental sources. There is no 50% external-payer reduction and no insurer-consolidation assumption.
 
-The user previously selected the assumption that the designated supervised technician time qualifies. This remains an explicit scenario assumption about the service, scope, supervision, documentation and billing arrangement, not a claim that a CPhT-A credential automatically qualifies. CMS permits eligible auxiliary services under the applicable supervision requirements; a CDTA alone does not establish independent pharmacist billing eligibility. [9,12,19] An alternative excludes technician time from the management threshold while preserving staffing costs. Real-time patient/caregiver communication and other qualifying work remain necessary. Scheduling, nonclinical device help, onboarding, recruitment outreach and separately counted MTM review do not enter the monthly threshold. A more expensive profession does not itself increase reimbursement, and a billing threshold is not evidence of how much staff time care requires.
+The default fee schedule uses **2026 national nonfacility benchmarks** from [MedPAC, Table 4-8, printed page 131](https://www.medpac.gov/wp-content/uploads/2026/03/Mar26_Ch4_MedPAC_Report_To_Congress_SEC.pdf):
 
-### Monthly and one-time collections
+| Qualifying clinical minutes/month | Management component | Device plus management allowance |
+| --- | --- | ---: |
+| Under 10 | No management fee | $52.11 |
+| 10 to under 20 | 99470 | $78.16 |
+| 20 to under 40 | 99457 | $103.88 |
+| 40 to under 60 | 99457 + one 99458 | $145.30 |
+| 60 or more | 99457 + two 99458 | $186.72 |
+
+The model caps add-ons at two while costing all entered time. Each allowance includes a single $52.11 device component, not two device codes. Codes 99445 and 99454 are alternatives according to transmission days; 99470 and 99457 are also alternatives. Setup 99453 is **$21.71 once per qualifying new episode**. These amounts do not predict local collections or finalized 2027 rates. Geographic adjustment and applicable conversion factors require local calibration.
+
+The physician arm's qualifying time is physician clinical minutes plus eligible RN minutes. Pharmacist delivery uses pharmacist clinical minutes plus eligible technician minutes. It excludes the separate physician oversight allowance. At the primary 20-minute allocations both arms receive the same potential benchmark. Administrative tasks, device logistics, recruitment, onboarding and separately costed review do not become billable recurring clinical time.
 
 ```text
-Monthly collections = qualifying active months × monthly allowed benchmark
-                      × collection share
-
-Setup collections = unique new initiations × setup-qualification share
-                    × one-time setup allowance × collection share
-
-Total collections = monthly collections + setup collections
+Expected qualified months Q = M × monthly qualification share b
+Expected qualified setups U = S × setup qualification share u
+Recurring collections = Q × arm monthly allowance Aj × collection share c
+Setup collections = U × setup allowance H × c
+Total collections Rj = recurring collections + setup collections
+Operating margin Πj = Rj − Cj
+Cost per active patient-month = Cj / M
+Financial impact of switching = Πpharmacist − Πphysician
 ```
 
-The Medicare setup allowance is **$21.71** for 99453. [10] Setup qualification, default **70%**, is a separate episode-level assumption. Setup is counted once for each qualifying new episode, never for existing participants and never twice for overlapping referral channels. The calculator uses expected qualifying setups; microsimulation uses a separate seeded setup-qualification draw shared between the two arms. Monthly and setup qualification are separate assumptions, not interchangeable probabilities.
+Primary outputs are **each arm's total collections, program cost, operating margin and cost per active patient-month**. The margin difference is secondary. A positive difference can be a smaller loss, not a positive operating surplus. Negative means switching worsens the modeled financial result. Medication-cost offsets are never included in `Rj` or `Πj`.
 
-The default **70%** qualifying-month share, **70%** setup-qualification share and **90%** all-in collection share are unvalidated planning assumptions, not observed local rates or CMS reimbursement percentages. The collection share represents realization of the total allowed amount, including Medicare, patient/supplemental collections and adjustments. It is not an additional Medicare payment percentage; do not apply another 80% factor. Counting all clinic collections does not mean that every patient or active month qualifies for payment. A first transmission qualifies initiation but does not prove a billable service month or setup episode. All active months incur service costs, including unpaid months. These editable qualification and collection assumptions should be calibrated to local billing experience and tested in sensitivity analyses. Original Medicare generally assigns 20% of the Medicare-approved amount to the patient after the Part B deductible, so the all-in realization assumption includes collections from both Medicare and patient/supplemental sources; it is not a claim that Medicare itself pays 90% of the allowed amount. [20]
+Both qualification shares default to **70%** and collection realization to **90%**. These are **unvalidated planning assumptions**, not measured Original Medicare RPM performance, evidence-based default success rates or CMS payment percentages. At 20 minutes, average recurring receipts across all active months are `$103.88 × 0.70 × 0.90 = $65.4444`; setup remains separate. [Medicare cost-sharing guidance](https://www.medicare.gov/coverage/doctor-other-health-care-provider-services) explains the patient portion but does not support the 90% realization assumption. Do not apply another 80% factor.
 
-At the default 20 qualifying clinical minutes, the expected recurring collection per active patient-month is `$103.88 × 0.70 × 0.90 = $65.4444`. A qualifying service month yields `$103.88 × 0.90 = $93.492` in modeled collections; the lower average across all active months includes unpaid months. Setup remains separate and once per qualifying new episode. These are conditional model calculations, not observed receipts.
+A common qualification draw matches the arms, but the model uses a pooled gate for a complete monthly bundle. It does not individually adjudicate transmission days, interaction, service periods, denials or separate device-only/management-only claims. A first reading is not proof of reimbursement eligibility. Work still costs money in unpaid months. Custom allowance mode is a payment sensitivity; no-reimbursement mode retains costs while setting receipts to zero.
 
-Qualification is a pooled monthly gate: the engine does not separately adjudicate transmission days, clinical time, communication, 30-day service periods versus calendar months, patient cost-sharing or claim denials. For a selected monthly bundle, it conservatively pays the device and management components together only in qualifying months. This simplification can omit device-only or management-only receipts. It must not be described as a claims-level reimbursement simulator.
+For fixed workload and participation, each arm's all-in collection break-even share is `Cj / (Q × Aj + U × H)` when the denominator is positive. A threshold above 100% is infeasible under those inputs. Changing workload can change payment tiers, so a staffing threshold requires recalculating both costs and allowances, not a purely linear labor extrapolation. Staffing, billing qualification, collections, fees, vendor prices, start timing and transition overhead should be varied independently before claiming feasibility.
 
-### Cost benchmarks and remaining assumptions
+## CMS staffing-policy context
 
-The cost basis is **2026 planning USD**, with source years disclosed. Published BLS May 2025 national mean wages are loaded once with the June 2026 private-industry healthcare compensation-to-wage ratio, **49.93/35.13 = 1.42129234**. [13,14] Applying one industry factor across different occupations and years is a modeling approximation, not an observed local benefit rate. No automatic inflation adjustment is applied. The optional 9:1 workflow uses the cashbook only for structural inspiration; its wages are excluded. The user-confirmed vendor package remains a separate business-plan assumption. [18] The private workbook is not distributed with the website.
+As checked **October 26, 2026**, the latest CMS 2027 PFS entry is a **proposed rule**, not a final restriction. [CMS regulation index](https://www.cms.gov/medicare/payment/fee-schedules/physician/federal-regulation-notices)
 
-| Cost input | Default and provenance | Limitation |
-| --- | --- | --- |
-| Physician labor | BLS family medicine **$122.99/hour** × (49.93/35.13) = approximately **$174.80/hour**. [13,14] | National occupation proxy for primary care; not all physician specialties or a clinic-specific contract. |
-| Registered-nurse labor | BLS **$48.76/hour** × (49.93/35.13) = approximately **$69.30/hour**. [13,14] | A registered nurse is not a nurse practitioner. Industry benefit loading is assumed, not an observed RN benefit rate. |
-| Medical-assistant labor | BLS **$22.17/hour** × (49.93/35.13) = approximately **$31.51/hour**. [13,14] | Occupational wage benchmark; task allocation and scope remain separately specified. |
-| Pharmacist labor | BLS **$67.75/hour** × (49.93/35.13) = approximately **$96.29/hour**. [13,14] | Published national mean with an assumed healthcare benefit load; not observed local compensation. |
-| Pharmacy-technician labor | BLS **$22.41/hour** × (49.93/35.13) = approximately **$31.85/hour**. [13,14] | General occupational proxy, not a measured advanced-technician wage; baseline has none. Clinical eligibility is a separate explicit assumption. |
-| One-time vendor/device package | Cashbook **$90 per unique new start**. [18] | User confirmed package coverage of the device and vendor onboarding; not an independently verified quote. In-house onboarding labor is separate. |
-| Recurring RPM technology package | Cashbook **$12 per active patient-month**. [18] | User confirmed software and cellular connectivity are included; clinical staff labor is separate. |
-| Additional connectivity | **$0** | Included in the assumed package; do not charge another connectivity fee for the same service. |
-| Additional core subscription | **$0** | No separate subscription on top of the user-confirmed bundle. Add only actual additional charges. |
-| Other fixed overhead | **$5,000/year** in both arms plus **$1,000** for integration | Investigator assumptions, kept separate from the core subscription. |
+The proposal would require RPM/RTM clinical staff to be direct employees of the billing practitioner/practice from **January 1, 2027, if finalized**, under general supervision and incident-to requirements. Staff can work remotely and the patient need not be on-site. The cited provision addresses clinical staffing; it does not establish a blanket ban on buying vendor devices/software. Retaining technology vendors in the model reflects that scope, not a legal determination about a specific contract. [CMS fact sheet](https://www.cms.gov/newsroom/fact-sheets/calendar-year-cy-2027-medicare-physician-fee-schedule-proposed-rule), [proposed-rule PDF, pages 150–152](https://public-inspection.federalregister.gov/2026-14327.pdf)
 
-The compensation factor loads benefits once; no additional productivity multiplier is applied. Neither cashbook wages nor cashbook payroll escalation are used. These are allocated resource costs, not necessarily an immediate change in cash payroll for salaried employees. Physician expenses allocate RPM task time rather than the physician's entire salary or departmental budget. The former flat $10 referral input is replaced by referral minutes multiplied by physician employer cost; it is not charged again.
+The study models clinic-employed delivery teams. Current CMS guidance permits eligible auxiliary services under general supervision and restricts RPM billing to eligible physicians/NPPs. Pharmacists can furnish incident-to services within applicable state scope, but a CDTA does not itself establish independent Medicare billing eligibility. Technician job titles and an assumed 9:1 allocation likewise do not prove qualifying clinical service. [CMS RPM booklet, page 13](https://www.cms.gov/files/document/mln901705-telehealth-remote-monitoring.pdf), [CMS pharmacist clarification](https://www.federalregister.gov/documents/2020/05/08/2020-09608/medicare-and-medicaid-programs-basic-health-program-and-exchanges-additional-policy-and-regulatory)
 
-The $90 and $12 vendor figures are not a verified Prevounce quote. The one-time charge applies once per unique new activation, not per referral, and never again for an existing participant. The monthly fee applies to every active patient-month, including months without payment. A real contract charging upon shipment, only for billable months, or through revenue sharing requires corresponding explicit accounting; marketing claims do not establish those terms. Separate connectivity and subscription charges default to zero because they are already included in the assumed package. Clinic labor is separate and should be removed only when the vendor actually replaces the same task.
+The proposal also includes a separately reportable initiating visit and valuation changes. Those changes and their associated costs/receipts are not implemented here. This is a **staffing-policy sensitivity using 2026 fee benchmarks**, not a complete 2027 implementation or reimbursement forecast.
 
-The published-price comparison retains the prior **$99.95 cuff**, **$15 software**, **$5 connectivity allowance**, and **$299 monthly core subscription**. [15,16] Those are separate component benchmarks, not an independently verified interchangeable vendor package. The prior pharmacist-heavy preset uses the same national loaded wage benchmarks as the team scenario. [13,14] Public prices were accessed October 25, 2026. They are comparison scenarios, not statistical uncertainty bounds.
+## Secondary analyses
 
-### Task allocation and role-specific equations
+### Alternative delivery teams
 
-The main clinic workflow uses these **investigator assumptions**, which are not measured by the wage sources or Hailu study:
+The physician/nurse sensitivity allocates **3 physician + 17 qualifying RN + 10 medical-assistant minutes** per active month. The optional 9:1 workflow allocates **3 pharmacist + 27 technician minutes**, with **17 of the technician minutes assumed qualifying**, plus separately costed nonbillable physician oversight. Its 9:1 ratio describes technician-to-pharmacist task time, not headcount or all program hours. It is inspired by the cashbook structure, not validated by a comparative staffing study. The primary pharmacist arm instead uses 20 pharmacist clinical minutes and no qualifying technician time.
 
-| Task | Main clinic staffing | Application |
-| --- | --- | --- |
-| Physician referral | 2 physician minutes | Every usual physician referral, including unsuccessful referrals, in both pathways |
-| New-start clinic onboarding | 5 RN + 15 medical-assistant minutes | Each unique new start needing a separate clinic onboarding bundle |
-| Recurring RPM | 3 physician clinical + 17 RN + 10 medical-assistant minutes | Every active month in both primary pathways, including nonqualifying months |
-| Added pharmacist review | 10 pharmacist minutes in primary remote scenario | Every completed added review, including nonactivators |
-| Added outreach/offer | 0.5 pharmacist + 4.5 pharmacy-technician minutes | Each modeled integration contact, including unsuccessful or duplicate offers |
+These alternatives must not be presented as measured national usual care. [Hailu et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC11436674/) describe varied physician, nurse, medical-assistant and vendor involvement, supporting workflow plausibility rather than the model's duration estimates or a national prevalence. Any role substitution also assumes adequate staff capacity and scope.
 
-An optional integrated-team workflow replaces routine RN/medical-assistant delivery in the integrated pathway with **2 pharmacist + 18 technician onboarding minutes** and **3 pharmacist + 27 technician recurring minutes**, retaining **3 physician clinical minutes per active month**. Baseline staffing does not change. This option's 9:1 ratio applies only to technician-to-pharmacist task time. It does not describe the entire workforce, clinical review burden, payroll or staff headcount. It does not permit independent technician medication changes or establish equal outcomes after staffing substitution.
+### MINOR-informed deprescribing in the matched cohort
 
-For each pathway, define `F` = physician referrals, `M` = active patient-months, `B` = unique new starts requiring separate clinic onboarding, `R` = completed added reviews, and `O` = added recruitment contacts. In the baseline, `R = O = 0`. In the primary `mtm-offer` pathway, `O` is the count of pharmacist offers after overlap/recontact rules; in HealthPartners mode, it is the count of targeted patients, including nonattendees. Let `d` be `reviewMinutes`, or `intakeMinutes` in HealthPartners mode.
+Primary `clinicalMode = unestimated` leaves outcomes and medication offsets unavailable, rather than equating missing evidence with zero. The secondary MINOR analysis retains the same enrolled cohort and applies **11/161 versus 31/161 patient-level deprescribing at 45 days** to the assumed comparable share active at the review month. Enhanced probability applies only after completed pharmacist review; others retain the usual-review probability. [MINOR trial](https://www.sciencedirect.com/science/article/pii/S0149291823002035), [author's institutional record](https://repositorio.ufba.br/handle/ri/36958)
 
-For `staffingMode = shared-clinic` in both pathways:
+The trial concerned older Brazilian patients using antihypertensives and home BP monitoring. Transfer to Original Medicare, comparability, review reach/completion and the added **10-minute** review allowance are assumptions. In delivery mode, eligible completed reviews are drawn among patients active at the review month and cost extra time once. These reviews do not recruit new RPM patients or create extra billable monthly minutes. There is no second retention gate during the 45-day follow-up. The 23% low-BP subgroup is not multiplied into the full-trial rates. An older indexed abstract reports 9 control outcomes; the scenario uses the concordant 11/161 count in the current source record and discloses that discrepancy.
+
+With extrapolation off, the endpoint is patients with deprescribing, not exact medicines discontinued or annual savings. The optional extension assumes one medicine-equivalent per outcome, $10 per medicine-month and transferred 69.4% 12-month persistence from a separate Singapore cohort. It uses constant monthly persistence `0.694^(1/12)`, starts exposure two months after review as an approximation to 45 days, and truncates financial exposure at month 12. These are explicit extrapolations, not annual MINOR results. [Persistence source](https://pubmed.ncbi.nlm.nih.gov/41505212/)
+
+Medication offsets remain separate from clinic receipts. No hospitalization, cardiovascular, fall, symptom or quality-bonus savings are added. A no-enhanced-effect scenario preserves usual-care outcomes and review costs; explicit zero effects and unestimated effects are different assumptions. Matched cohorts prevent recruitment differences from creating additional clinical outcomes in this delivery comparison.
+
+### Recruitment as a separate question
+
+`comparisonMode = recruitment` retains the earlier analysis of adding pharmacist recruitment. Here **N is an eligible population**, not a common enrolled cohort. Existing participants, usual physician starts and added pharmacist starts are deduplicated. Referral, review and offer costs accrue even without activation. Initiation requires a first transmitted BP reading.
+
+With recontact disabled, the illustrative pathway uses:
 
 ```text
-Physician hours = (F × physicianReferralMinutes + M × monitorPhysicianMinutes) / 60
-RN hours = (B × onboardingNurseMinutes + M × monitorNurseMinutes) / 60
-Medical-assistant hours = (B × onboardingAssistantMinutes + M × monitorAssistantMinutes) / 60
-Pharmacist hours = (R × d + O × offerMinutes) / 60
-Pharmacy-technician hours = O × offerSupportMinutes / 60
+Usual new starts = N × (1 − e) × r × qA
+Added new starts = N × (1 − e) × (1 − r) × f × c × o × qB
 ```
 
-For the integrated pathway only when `staffingMode = integrated-team`:
+The 11.8% physician-attributed referral source does not establish an annual physician-exclusive rate or downstream care staffing. Its use as annual physician-only recruitment is an explicit assumption. The transferred 53% initiation and historical 84% MA-PD CMR completion do not validate Original Medicare pharmacist recruitment. [Referral study](https://www.jmir.org/2025/1/e64933/), [UCSD uptake manuscript](https://pages.ucsd.edu/~yfadlon/pdfs/Digital_Health.pdf), [PQA completion report](https://www.pqa.org/wp-content/uploads/2025/10/PQA-QuIRC-MTM-Report.pdf)
 
-```text
-Physician hours = (F × physicianReferralMinutes + M × monitorPhysicianMinutes) / 60
-RN hours = Medical-assistant hours = 0
-Pharmacist hours = (R × d + O × offerMinutes
-                    + B × onboardingMinutes + M × monitorPharmacistMinutes) / 60
-Pharmacy-technician hours = (O × offerSupportMinutes
-                            + B × onboardingSupportMinutes + M × monitorSupportMinutes) / 60
-```
+The optional HealthPartners pathway replaces the review/offer/uptake stages with **385/1,423 intake attendance** and **80% first transmission among attendees**. Targeted share remains assumed. A 60-minute intake is a protocol allocation, not a measured mean; every attendee incurs it, including nonactivators. It replaces the short review and includes clinic education, so additional intake-driven starts do not incur duplicate clinic onboarding. Usual physician starts retain onboarding; vendor charges occur once per new start. These study workflows and population transfers are separate from the primary remote delivery comparison. [HyperLink 3](https://pmc.ncbi.nlm.nih.gov/articles/PMC9649877/)
 
-In either mode, total labor cost is `Σ(role hours × that role's loaded hourly cost)`. Qualifying subsets do not create extra labor hours. Physician clinical time scales with active months, including months contributed by additional pharmacist-recruited patients. No extra generic supervision charge is silently assumed to be covered by overhead. To include work outside the entered bundles, explicitly revise the appropriate resource assumptions while preserving the distinction between costed work and billing-eligible work.
+## Simulation, exports and validation
 
-In the primary remote pathway, `B` is the number of unique new starts. HealthPartners intake replaces the 10-minute review bundle and includes clinic education for additional intake-driven starts, so those starts are excluded from `B` in either staffing mode. Usual physician initiators still receive their pathway's normal onboarding, even when they also attend an added intake. The vendor/device charge remains once per unique new start regardless of the clinic bundle. An intake attendee who never initiates RPM incurs intake and outreach cost without added RPM receipts.
+Expected results are analytic projections. Microsimulation uses the same parameters and paired random draws to generate patient histories. In delivery mode, each identifier represents the same enrollment, start month, continuation and qualification history in both arms; only entered delivery resources and enabled clinical assumptions differ. Synthetic trajectories are not observed counterfactual outcomes. More patients/seeds reduce numerical noise, not uncertainty about the real effects. Probabilistic sensitivity analysis would require justified parameter distributions and dependencies beyond the playback simulation.
 
-The cashbook combines RPM and CCM and its time-band formula does not reconcile cleanly to all tier labels. Its implied 15.1-minute monthly average therefore is **not** adopted as an RPM-only workload. CCM revenue and time are not imported. The model continues to count the setup fee once per qualifying new episode, and does not repeat setup in each month's receipts. The cashbook's provider revenue-sharing fraction is not imported; this model counts collections retained by the clinic without an additional payer-mix reduction.
+Scenario JSON includes inputs, model/evidence metadata, seed, paired records, analytic expectations and simulated summaries. Role-specific `taskRecords` reconcile minutes, hourly costs and task costs. `supportHours` aliases pharmacy-technician hours; do not sum it again. Common fixed costs are cohort costs. `monthlyRevenue + setupRevenue = revenue`; setup is already included and must not be added again. Clinical nulls remain null in exports. CSV is for inspection, JSON for exact replay.
 
-Task durations include associated documentation within the entered time. The legacy mode values incremental review work. The HealthPartners mode values the complete allocated intake instead, without adding the legacy review bundle again. Variable costs use all active months, including unpaid ones. Fixed costs persist when there is no additional recruitment or clinical benefit. Discrete hiring steps, staffing capacity and extra billing administration costs are not separately estimated.
+Engine **7.0.0/schema 7** rejects older exports, including 6.0.0. They cannot be silently converted because the question, enrolled denominator, staffing substitution and clinical defaults changed. Keep older runs with their matching source revision.
 
-An NYU Langone RPM study reports NP data review of 10 minutes/week plus 15 minutes/month communication. [17] Adapting this to pharmacist work gives `10 × 52 / 12 + 15 = 58.33` clinical minutes/month, a higher-workload sensitivity, not a validated pharmacist or RN mean. Its cardiology workflow used physicians for enrollment and NP/medical-assistant support. It supports task-level microcosting but does not validate the proposed 3/17/10 clinic allocation. It does not establish improved clinical outcomes from greater entered time. Study-specific total cost estimates must not be substituted for a monthly vendor package quote.
-
-When enabled, drug offsets use the assumed **$10 per medication-month**, net of modeled restarts. They remain unavailable in MINOR mode without the optional extension. They are reported separately from clinic collections and never added to clinic financial surplus. Actual net drug costs, substitutions and dose changes require calibration; the single-drug illustration does not estimate those separately.
-
-CMS guidance also requires appropriate billing practitioners, supervision, consent, connected devices and no duplicate services/time. [9] This model does not adjudicate CPT claims, implement a statutory change or certify billability. Validate actual payer contracts and applicable requirements before treating the scenario as a local forecast.
-
-Use positive **incremental net benefit** to mean improvement relative to the existing program. A positive difference can represent a smaller loss while both programs still have negative total results; it is not necessarily an absolute surplus or profit. Read each arm's total alongside the difference. For a cost-oriented result, the sign is reversed: incremental clinic net cost equals added program costs minus added RPM collections. State the convention beside every result. Neither an additional RPM start nor a symptom improvement automatically creates a quality bonus or a medical-cost saving.
-
-## Simulation and uncertainty
-
-The deterministic calculation is the primary expectation under the selected inputs. The microsimulation creates fictional individual histories to illustrate the same assumptions. The same synthetic cohort passes through both pathways, using shared patient-level draws for common processes. A seed makes these draws reproducible; it does not make synthetic patients empirical evidence. The resulting paired histories are a computational comparison device rather than measured counterfactual patient outcomes.
-
-Patient records distinguish physician referral, added pharmacist contact/review, unique initiation, active service, qualification and clinical outcomes. Each pathway has a role-specific task trace with minutes, hourly cost and task cost; the baseline must show zero pharmacist and pharmacy-technician time. Added physician and clinic-staff service costs for new recruits remain visible in the main shared workflow. Changing playback speed or selecting a patient does not redraw outcomes or create another charge.
-
-Random variation between synthetic runs is different from uncertainty about inputs. Larger simulated populations reduce numerical noise but do not narrow uncertainty about the true effects of integration. Do not label seed variation a clinical confidence interval. A probabilistic sensitivity analysis requires separately specified input distributions and dependencies; a sensitivity range is not itself such a distribution.
-
-Required structural scenarios include no additional medication-action benefit, no added RPM recruitment, and no RPM reimbursement. Retain the relevant costs in each. Equal action rates remove the assumed improvement per comparable assessed patient, but extra recruitment can still change total actions; a scenario claiming **zero total added deprescribing benefit** must also neutralize that reach-related increment. Vary targeting, intake attendance, activation, MINOR comparability, legacy MTM offers/uptake where applicable, recruitment month, service duration, staffing time, drug costs and collection assumptions. Different source populations and time horizons are structural uncertainty; combining their point estimates does not validate the complete program. Report infeasible or undefined thresholds explicitly.
-
-Validation should check cohort conservation, exclusion of existing participants from new starts, stage denominators, costs for nonactivators, nonduplicated intake/onboarding, zero baseline pharmacist/technician labor, role-hour and task-cost reconciliation, shared versus substituted staffing, physician clinical workload for added patients, MINOR independence from low-BP inputs, delayed optional medication exposure, missing-versus-zero endpoints, unit consistency, comparator subtraction and the clinic financial boundary. Deterministic and simulated summaries should agree in expectation under identical assumptions. Replay checks test computational reproducibility, not clinical validity or real-world savings.
-
-## Export and replay
-
-An integration JSON bundle includes complete inputs, the seed, model/evidence metadata, paired synthetic patient records, analytic expected summaries and simulated summaries. `qualifiedSetups` counts eligible new setup episodes; `monthlyRevenue` and `setupRevenue` sum to total `revenue`. Each patient's pathway has `taskRecords` entries with `role`, `task`, `minutes`, `wage`, `key` and `cost`. Roles are `physician`, `nurse`, `medicalAssistant`, `pharmacist` and `technician`. Hours appear as `physicianHours`, `nurseHours`, `assistantHours`, `pharmacistHours` and `technicianHours`; the retained `supportHours` field aliases pharmacy-technician hours, not all nonphysician labor. Do not sum that alias again.
-
-Cost components appear in `costBreakdown`, including physician referral/clinical monitoring, RN onboarding/monitoring, medical-assistant onboarding/support and the separately identified pharmacist/technician work. Common platform and other fixed costs and added integration fixed costs are cohort costs, not patient charges. The shared verifier reruns the model and rejects mismatched versions, schema, inputs, metadata or results. It does not treat a plausible edited summary as a valid run. A CSV is a table for inspection; use JSON for exact replay.
-
-Version **6.0.0/schema 6** rejects earlier model versions, including **5.0.0**. Earlier exports retain their original source revision and are not silently migrated to the new staffing structure. Version 6 introduces a physician/nurse/medical-assistant baseline, shared routine staffing in the primary integration comparison, optional pharmacist/technician substitution, role-specific costs/hours/task traces and per-pathway payment schedules. Version 5 introduced HealthPartners intake and short-term MINOR endpoints; those structures remain available as explicit scenarios. Saved inputs, evidence metadata and synthetic histories record the selected choices; CSV preserves null longer-term results rather than converting them to zero. Setup is already included in expected and seeded results and must not be added a second time.
-
-From the repository root, verify an exported file without modifying it:
-
-```sh
+```bash
 node scripts/replayIntegrationStudy.js /path/to/scenario.json
+npm test
+npm run build
 ```
 
-The command prints a compact JSON summary and exits successfully only after exact replay. A missing file, invalid JSON, unsupported version or changed result exits nonzero. Keep the matching code revision with the scenario; replay is version-specific. The bundle does not contain an executable source archive or an independent authenticity guarantee. `npm test` runs model tests; `npm run build` checks the application build. Neither establishes clinical validity.
+Replay verifies the exact saved calculation and fails for changed results or incompatible versions. Tests should cover matched cohort/calendar, equal qualification histories, physician-cost replacement, separately costed oversight, qualifying-time subsets, review/onboarding deduplication, role-cost reconciliation, total margins, drug-offset exclusion and secondary recruitment isolation. Passing them verifies implementation, not clinical validity or guaranteed profitability.
 
-## Primary references
-
-1. Wu et al. *Factors Influencing Primary Care Physicians’ Intent to Refer Patients With Hypertension to a Digital Remote Blood Pressure Monitoring Program*. JMIR 2025;27:e64933. [DOI 10.2196/64933](https://www.jmir.org/2025/1/e64933/).
-2. Fadlon et al. *Equity and Efficiency in Technology Adoption: Evidence from Digital Health*. Author manuscript, section 6.2 and footnote 17; working-paper evidence. [UCSD manuscript](https://pages.ucsd.edu/~yfadlon/pdfs/Digital_Health.pdf).
-3. PQA. *Advancing Medication Therapy Management Quality Measurement*, 2024, page 4. [Primary report](https://www.pqa.org/wp-content/uploads/2025/10/PQA-QuIRC-MTM-Report.pdf). The 84% MA-PD benchmark is also in [CMS 2024 Star Ratings Technical Notes, Table C-2](https://www.cms.gov/files/document/2024-star-ratings-technical-notes.pdf).
-4. Moreira et al. *Use of Residential Blood Pressure Monitoring as a Tool in Pharmaceutical Care – Baseline Assessment of the MINOR Clinical Trial*. 2025. [Publisher; DOI 10.22563/2525-7323.2025.v10.e00166e](https://ojs.jaff.org.br/ojs/index.php/jaff/article/view/1367).
-5. Silva et al. *Desprescribing antihypertensives in older people in primary care: subgroup analysis of the MINOR randomised clinical trial*. Int J Clin Pharm. 2025;47:53–59. [DOI 10.1007/s11096-024-01805-y](https://link.springer.com/article/10.1007/s11096-024-01805-y).
-6. Sheppard et al. *The OPTIMISE Randomized Clinical Trial*. JAMA. 2020;323:2039–2051. [PubMed; DOI 10.1001/jama.2020.4871](https://pubmed.ncbi.nlm.nih.gov/32453368/).
-7. Yeo, Chia, Tan. *Deprescribing antihypertensives in primary care: clinical and safety outcomes among older adults*. Singapore Med J. Published January 9, 2026. [PubMed; DOI 10.4103/singaporemedj.SMJ-2025-113](https://pubmed.ncbi.nlm.nih.gov/41505212/).
-8. Margolis et al. *Effect of Home Blood Pressure Telemonitoring and Pharmacist Management on Blood Pressure Control*. JAMA. 2013;310:46–56. [Full article; DOI 10.1001/jama.2013.6549](https://jamanetwork.com/journals/jama/fullarticle/1707720).
-9. CMS. *Telehealth & Remote Monitoring*, MLN901705, December 2025, remote monitoring requirements. [CMS booklet](https://www.cms.gov/files/document/mln901705-telehealth-remote-monitoring.pdf). Policy reference checked October 25, 2026; not a payment-rate source.
-10. MedPAC. *March 2026 Report to the Congress: Medicare Payment Policy*, Chapter 4, Table 4-8, printed page 131. [National nonfacility RPM allowed amounts](https://www.medpac.gov/wp-content/uploads/2026/03/Mar26_Ch4_MedPAC_Report_To_Congress_SEC.pdf).
-11. CMS. *Calendar Year 2026 Medicare Physician Fee Schedule Final Rule*, October 31, 2025. [Geographic adjustment and separate conversion factors](https://www.cms.gov/newsroom/fact-sheets/calendar-year-cy-2026-medicare-physician-fee-schedule-final-rule-cms-1832-f).
-12. Noridian. *Remote Physiologic Monitoring: 2026 E/M Updates*, December 26, 2025. [New 2–15-day and 10-minute options](https://med.noridianmedicare.com/web/jfb/article-detail/-/view/10534/remote-physiologic-monitoring-rpm-2026-evaluation-and-management-em-updates). The [official 2026 PFS final rule](https://public-inspection.federalregister.gov/2025-19787.pdf) specifies nonadditive base codes and real-time interactive communication.
-13. BLS. *Occupational Employment and Wages—May 2025*, Table 1, released May 15, 2026. [Archived national mean hourly wages](https://www.bls.gov/news.release/archives/ocwage_05152026.htm): family medicine physician $122.99; RN $48.76; medical assistant $22.17; pharmacist $67.75; pharmacy technician $22.41. Verified October 26, 2026. The figures are means, not medians, and exclude self-employed workers.
-14. BLS. *Employer Costs for Employee Compensation—June 2026*, Table 4, released September 9, 2026, private-industry healthcare and social assistance: wages $35.13 and total compensation $49.93/hour. [Archived compensation release](https://www.bls.gov/news.release/archives/ecec_09092026.htm), verified October 26, 2026. One industry ratio applied across occupational wages is an explicit approximation; it does not provide profession-specific or clinic-specific benefits.
-15. The Digital Health Store. [RPM products and public cellular-cuff retail prices](https://thedigitalhealthstore.com/collections/rpm-software-and-services), accessed October 25, 2026.
-16. SmartClinix. [Published pricing plan](https://smartclinix.net/pricing-plan/), accessed October 25, 2026. RPM technology and Professional core prices are component benchmarks; clinical monitoring, device compatibility, licensing and enterprise contract terms are separate.
-17. NYU Langone RPM economic evaluation, 2026. [Full article and workload/cost inputs](https://pmc.ncbi.nlm.nih.gov/articles/PMC13016703/). Transferring NP workload to pharmacist time is an explicit sensitivity assumption.
-18. User-supplied *RPM Cash Book.xlsx*, unpublished business-competition plan, reviewed October 25, 2026. `RPM etc!B30:B31` informs the 90% technician / 10% pharmacist task allocation; cashbook wages are excluded. `RPM etc!B26` and `B28` supply the separately retained $90 one-time and $12 monthly vendor charges. The user confirmed qualifying supervised clinical work and that the vendor charges include device/software/connectivity while in-house labor remains separate. These are planning assumptions, not peer-reviewed staffing estimates, claims evidence, or an independently verified vendor contract. The private source workbook is not uploaded.
-19. Noridian. [Incident To Services](https://med.noridianmedicare.com/web/jfb/topics/incident-to-services), role, scope and state qualification requirements. Apply RPM's specific general-supervision provisions from CMS [9]; the generic incident-to direct-supervision discussion does not replace the RPM rule. A job title alone does not establish that a particular task qualifies as clinical treatment management.
-
-20. Medicare.gov. [Doctor & other health care provider services](https://www.medicare.gov/coverage/doctor-other-health-care-provider-services). Original Medicare patient cost-sharing generally equals 20% of the Medicare-approved amount after the Part B deductible. This supports separating the allowed amount from all-in collections, not the model's assumed 90% realization rate.
-
-21. Margolis et al. *Comparing Pharmacist-Led Telehealth Care and Clinic-Based Care for Uncontrolled High Blood Pressure: The Hyperlink 3 Pragmatic Cluster-Randomized Trial*. Hypertension. 2022;79:2708–2720. [Full paper; DOI 10.1161/HYPERTENSIONAHA.122.19816](https://pmc.ncbi.nlm.nih.gov/articles/PMC9649877/). Recruitment denominators and the one-hour offered intake support the named transferred scenario, not a local causal effect or measured intake labor average.
-22. Moreira et al. *Optimizing Hypertension Treatment in Older Patients Through Home Blood Pressure Monitoring by Pharmacists in Primary Care: The MINOR Clinical Trial*. Clinical Therapeutics. 2023;45:941–946. [Publisher](https://www.sciencedirect.com/science/article/pii/S0149291823002035), [current PubMed abstract](https://pubmed.ncbi.nlm.nih.gov/37365046/). Uses the full trial's concordant 31/161 versus 11/161 patient counts, not the later subgroup's prescription-count change.
-23. Moreira. Author's institutional dissertation record supporting the MINOR trial counts. [Universidade Federal da Bahia repository](https://repositorio.ufba.br/handle/ri/36958). An older indexed journal PDF abstract differs; the discrepancy is disclosed above.
-24. Hailu et al. *Challenges and Facilitators in Implementing Remote Patient Monitoring Programs in Primary Care*. J Gen Intern Med. 2024;39:2471–2477. [Full paper; DOI 10.1007/s11606-023-08557-x](https://pmc.ncbi.nlm.nih.gov/articles/PMC11436674/). Interviews with 20 PCPs across 13 states described direct physician data review and delegation to nurses, medical assistants or vendors. This supports the plausibility of varied workflows, not the model's task durations or a national prevalence of physician-only RPM. Verified October 26, 2026.
-
-The prior [health-plan budget model](integrated-system-model.md) and [provider comparison](provider-feasibility-model.md) use different questions and assumptions. Their exports must retain their original model versions; do not relabel them as results from the integration study.
+Historical [health-plan budget](integrated-system-model.md), [provider comparison](provider-feasibility-model.md) and [recruitment-only](recruitment-microsimulation.md) models remain archival and must not be relabeled as current direct-delivery results.

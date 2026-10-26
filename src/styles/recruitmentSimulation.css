@@ -234,5 +234,17 @@
 .recruitment-sim .sim-patient-ledger { background:white; border:1px solid #d5e0eb; border-radius:12px; padding:18px; }
 .recruitment-sim .sim-patient-ledger h4 { color:#244f79; font-weight:750; margin:18px 0 8px; }
 .recruitment-sim .sim-patient-ledger p { font-size:11px; color:#5d748b; line-height:1.7; margin-top:12px; }
+.recruitment-sim .sim-patient-ledger table { width:100%; min-width:560px; border-collapse:collapse; font-size:12px; }
+.recruitment-sim .sim-patient-ledger th, .recruitment-sim .sim-patient-ledger td { padding:12px 14px; border-bottom:1px solid #e0e8ef; text-align:left; vertical-align:top; line-height:1.5; }
+.recruitment-sim .sim-patient-ledger thead { background:#f1f6fb; color:#385875; }
+.recruitment-sim .sim-patient-ledger td:nth-last-child(-n+2) { text-align:right; white-space:nowrap; }
 .recruitment-sim .study-team-summary { margin:18px 0; }
 .recruitment-sim .study-team-summary p { color:#536c82; font-size:12px; line-height:1.7; margin:12px 0; }
+
+.sim-paired-finances { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.sim-paired-finances .sim-financial-result { min-width:0; }
+.sim-paired-finances .sim-financial-result strong { font-size:clamp(25px,3vw,38px); overflow-wrap:anywhere; }
+.sim-switch-summary { background:#eef4f9; border:1px solid #d1deeb; border-radius:10px; margin-top:22px; padding:18px; }
+.sim-switch-summary h3 { font-size:14px; color:#254969; font-weight:750; margin-bottom:8px; }
+.sim-switch-summary p { font-size:12px; line-height:1.8; color:#556b82; }
+@media(max-width:700px) { .sim-paired-finances { grid-template-columns:1fr; } }

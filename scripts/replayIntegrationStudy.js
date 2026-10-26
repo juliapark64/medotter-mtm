@@ -15,8 +15,10 @@ if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
     const path = resolve(args[0])
     const bundle = verifyIntegrationExport(JSON.parse(readFileSync(path, 'utf8')))
     const summarize = result => ({
+      physicianProgram: { participants: result.baseline.totalParticipants, collections: result.baseline.revenue, costs: result.baseline.programCost, margin: result.baseline.operatingMargin },
+      pharmacistProgram: { participants: result.integrated.totalParticipants, collections: result.integrated.revenue, costs: result.integrated.programCost, margin: result.integrated.operatingMargin },
       additionalInitiations: result.delta.newInitiations,
-      incrementalOperatingMargin: result.delta.operatingMargin,
+      financialImpactOfSwitching: result.delta.operatingMargin,
       incrementalNetFinancialBenefit: result.delta.netFinancialBenefit,
       incrementalNetBenefitPer1000: result.delta.netBenefitPer1000,
       incrementalClinicalOutcomes: result.delta.clinical
@@ -30,6 +32,7 @@ if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
       seed: bundle.inputs.seed,
       population: bundle.inputs.N,
       perspective: bundle.inputs.perspective,
+      comparisonMode: bundle.inputs.comparisonMode,
       clinicalMode: bundle.inputs.clinicalMode,
       recruitmentMode: bundle.inputs.recruitmentMode,
       minorExtrapolation: bundle.inputs.minorExtrapolation,

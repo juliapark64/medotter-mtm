@@ -1,23 +1,23 @@
 import { getRpmPaymentSchedule } from '../lib/integrationStudy'
 
 const number = value => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('en-US', { maximumFractionDigits: 2 }) : 'Not estimated'
-const roleNames = { physician: 'Physician', nurse: 'Registered nurse', medicalAssistant: 'Medical assistant', pharmacist: 'Pharmacist', technician: 'Pharmacy technician' }
 const money = value => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }) : 'Not estimated'
+const roleNames = { physician: 'Physician', nurse: 'Registered nurse', medicalAssistant: 'Medical assistant', pharmacist: 'Pharmacist', technician: 'Pharmacy technician' }
+export const armLabels = inputs => inputs.comparisonMode === 'delivery' ? ['Physician-delivered RPM', 'Pharmacist-delivered RPM'] : ['Usual referral program', 'Pharmacist recruitment scenario']
 
 export const STUDY_COST_LABELS = [
-  ['physicianReferrals', 'Physician referral work'],
-  ['physicianMonitoring', 'Physician clinical review / treatment decisions'],
+  ['physicianMonitoring', 'Physician RPM clinical delivery'], ['physicianOversight', 'Separate physician supervision for pharmacist delivery'],
+  ['nurseMonitoring', 'Nurse monitoring / follow-up'], ['assistantMonitoring', 'Medical-assistant coordination'],
+  ['pharmacistMonitoring', 'Pharmacist RPM clinical delivery'], ['technicalSupport', 'Pharmacy-technician RPM support'],
   ['nurseOnboarding', 'Nurse onboarding'], ['assistantOnboarding', 'Medical-assistant onboarding'],
-  ['nurseMonitoring', 'Nurse monitoring / follow-up'], ['assistantMonitoring', 'Medical-assistant RPM coordination'],
-  ['reviews', 'Added pharmacist intakes / medication reviews'], ['offers', 'Added pharmacist recruitment work'],
-  ['supportOffers', 'Pharmacy-technician recruitment assistance'],
-  ['onboarding', 'Optional pharmacist onboarding'], ['supportOnboarding', 'Optional pharmacy-technician onboarding'],
-  ['pharmacistMonitoring', 'Optional pharmacist RPM monitoring'], ['technicalSupport', 'Optional pharmacy-technician RPM service'],
-  ['devices', 'Vendor/device package · total across new starts'], ['software', 'RPM technology bundle · total across active months'],
-  ['connectivity', 'Additional connectivity'], ['platformBase', 'Shared platform subscription'],
-  ['otherFixed', 'Other program overhead'], ['addedFixed', 'Added integration overhead'],
+  ['onboarding', 'Pharmacist onboarding'], ['supportOnboarding', 'Pharmacy-technician onboarding'],
+  ['physicianReferrals', 'Physician referral work · secondary recruitment analysis'],
+  ['reviews', 'Additional medication review / intake'], ['offers', 'Pharmacist recruitment · secondary analysis'],
+  ['supportOffers', 'Technician recruitment · secondary analysis'],
+  ['devices', 'Vendor/device package · across new starts'], ['software', 'RPM technology bundle · across active months'],
+  ['connectivity', 'Additional connectivity'], ['platformBase', 'Platform subscription'],
+  ['otherFixed', 'Program overhead'], ['addedFixed', 'Pharmacist delivery transition / additional overhead'],
 ]
-
 export const STUDY_HOUR_ROWS = [
   ['physicianHours', 'Physician hours, all tasks'], ['nurseHours', 'Nurse hours, all tasks'],
   ['assistantHours', 'Medical-assistant hours, all tasks'], ['pharmacistHours', 'Pharmacist hours, all tasks'],
@@ -25,10 +25,11 @@ export const STUDY_HOUR_ROWS = [
 ]
 
 export function recurringStaffing(inputs, integrated = false) {
-  const team = integrated && inputs.staffingMode === 'integrated-team'
+  const team = integrated && (inputs.comparisonMode === 'delivery' || inputs.staffingMode === 'integrated-team')
   return [
-    { role: 'Physician', minutes: inputs.monitorPhysicianMinutes, wage: inputs.physicianWage },
-    { role: 'Nurse', minutes: team ? 0 : inputs.monitorNurseMinutes, wage: inputs.nurseWage },
+    { role: 'Physician RPM delivery', minutes: team ? 0 : inputs.monitorPhysicianMinutes, wage: inputs.physicianWage },
+    { role: 'Separate physician supervision', minutes: team ? inputs.physicianOversightMinutes : 0, wage: inputs.physicianWage },
+    { role: 'Registered nurse', minutes: team ? 0 : inputs.monitorNurseMinutes, wage: inputs.nurseWage },
     { role: 'Medical assistant', minutes: team ? 0 : inputs.monitorAssistantMinutes, wage: inputs.assistantWage },
     { role: 'Pharmacist', minutes: team ? inputs.monitorPharmacistMinutes : 0, wage: inputs.pharmacistWage },
     { role: 'Pharmacy technician', minutes: team ? inputs.monitorSupportMinutes : 0, wage: inputs.supportWage },
@@ -36,33 +37,39 @@ export function recurringStaffing(inputs, integrated = false) {
 }
 
 export function ClinicPathwaySummary({ inputs }) {
-  const team = inputs.staffingMode === 'integrated-team'
+  const direct = inputs.comparisonMode === 'delivery'
+  const labels = armLabels(inputs)
   return <section className="study-pathway-summary" aria-label="Who delivers care in each pathway">
-    <div><span className="study-eyebrow">CURRENT PROGRAM</span><h3>Physician-led RPM</h3><p>Physician referrals and clinical decisions, nurse monitoring, and medical-assistant coordination. No pharmacist or pharmacy technician participates in this baseline.</p></div>
-    <div><span className="study-eyebrow">WITH PHARMACIST INTEGRATION</span><h3>{team ? 'Added MTM + optional staffing change' : 'Same clinic team + added MTM'}</h3><p>{team ? 'Physician clinical review continues. Pharmacist/technician RPM tasks replace nurse/assistant tasks, alongside added pharmacist recruitment and medication review. This scenario combines recruitment with a staffing change.' : 'The same physician, nurse, and medical-assistant service continues. Pharmacist recruitment and medication review are added; pharmacy-technician assistance is costed only in this pathway.'}</p></div>
-    <p className="study-pathway-note">{team ? 'The 9:1 ratio refers only to technician-to-pharmacist task minutes at the reference settings. Physician work and added medication reviews are separate.' : 'The main comparison isolates adding pharmacist services. Additional RPM participants still generate physician, nurse, assistant, and vendor costs.'} Staffing minutes are investigator assumptions, not measured average workloads.</p>
+    <div><span className="study-eyebrow">PROGRAM A · OWN STAFFING BUDGET</span><h3>{labels[0]}</h3><p>Physician clinical delivery with the specified nurse and medical-assistant support. No pharmacist or pharmacy-technician labor is assigned to this program.</p></div>
+    <div><span className="study-eyebrow">PROGRAM B · OWN STAFFING BUDGET</span><h3>{labels[1]}</h3><p>{direct || inputs.staffingMode === 'integrated-team' ? 'Pharmacist clinical delivery with technician support replaces the physician-led delivery team. Physician supervision is a separate editable resource; the original physician, nurse and assistant service budget is not carried over.' : 'Secondary recruitment analysis: the usual clinic team continues while pharmacist recruitment and medication review are added.'}</p></div>
+    <p className="study-pathway-note">{direct ? 'Both programs serve the same patients on the same service calendar. Different enrollment is excluded from the primary comparison. Deprescribing is an optional secondary outcome.' : 'This is a separate recruitment question and may change enrollment as well as spending.'} Task minutes are investigator assumptions. Published wages do not validate the workload.</p>
   </section>
+}
+
+export function PolicyContext() {
+  return <div className="study-explanation"><strong>Policy scenario · proposal as of October 26, 2026</strong>CMS proposes requiring RPM clinical staff to be employed by the billing practice from January 1, 2027, if finalized. This is not a finalized blanket vendor ban. Both modeled teams are clinic-employed; technology, devices and connectivity may still be purchased from vendors. The pharmacist program retains an eligible billing practitioner and required supervision. Payment calculations use 2026 benchmarks, not finalized 2027 rates. <a href="https://www.cms.gov/newsroom/fact-sheets/calendar-year-cy-2027-medicare-physician-fee-schedule-proposed-rule" target="_blank" rel="noreferrer">CMS proposal ↗</a> · <a href="https://www.cms.gov/files/document/mln901705-telehealth-remote-monitoring.pdf" target="_blank" rel="noreferrer">Current billing guidance ↗</a></div>
 }
 
 export function RecurringStaffingSummary({ inputs }) {
   const baseline = recurringStaffing(inputs)
   const integrated = recurringStaffing(inputs, true)
+  const labels = armLabels(inputs)
   const total = rows => rows.reduce((sum, row) => sum + row.minutes * row.wage / 60, 0)
-  return <div className="study-team-summary">
-    <p className="study-eyebrow">Recurring service · per active patient-month</p>
-    <div className="study-table-wrap"><table className="study-table"><thead><tr><th scope="col">Professional</th><th scope="col">Physician-led baseline</th><th scope="col">With pharmacist integration</th><th scope="col">Hourly employer cost</th></tr></thead><tbody>
+  return <div className="study-team-summary"><p className="study-eyebrow">Separate staffing budgets · per active patient-month</p>
+    <div className="study-table-wrap"><table className="study-table"><thead><tr><th scope="col">Task / professional</th><th scope="col">{labels[0]}</th><th scope="col">{labels[1]}</th><th scope="col">Hourly employer cost</th></tr></thead><tbody>
       {baseline.map((row, i) => <tr key={row.role}><th scope="row">{row.role}</th><td>{number(row.minutes)} min</td><td>{number(integrated[i].minutes)} min</td><td>{money(row.wage)}</td></tr>)}
-      <tr><th scope="row">Total recurring labor cost</th><td>{money(total(baseline))}</td><td>{money(total(integrated))}</td><td>Minutes × wage ÷ 60</td></tr>
+      <tr><th scope="row">Recurring labor cost</th><td>{money(total(baseline))}</td><td>{money(total(integrated))}</td><td>Minutes × wage ÷ 60</td></tr>
     </tbody></table></div>
-    <p>Physician minutes represent clinical review and treatment decisions, including clinical oversight; administrative supervision is excluded from qualifying management time. Nurse qualifying time is a subset of total nurse time. Medical-assistant coordination is excluded from the management-time threshold. Onboarding, referral work, recruitment, and added pharmacist review are accounted for separately.</p>
-    <p>These are valued resources, not a prediction that salaried payroll immediately changes. Published wage benchmarks do not establish the time each task takes or the clinical eligibility of staff work.</p>
+    <p>Supervision is costed separately and excluded from recurring clinical billing minutes. Qualifying nurse/technician time is a subset of paid work. Logistics, onboarding and separate medication reviews do not enter the management-time threshold.</p>
+    <p>These are allocated labor costs. Released physician time represents capacity; unchanged salaries do not automatically become cash savings. The 9:1 preset is a technician-to-pharmacist task-time assumption, not an observed staffing standard or headcount ratio.</p>
   </div>
 }
 
 export function PairedPaymentSummary({ inputs }) {
   const schedules = ['baseline', 'integrated'].map(arm => getRpmPaymentSchedule(inputs, arm))
-  return <div className="study-table-wrap"><table className="study-table"><thead><tr><th scope="col">Payment basis</th><th scope="col">Physician-led baseline</th><th scope="col">With pharmacist integration</th></tr></thead><tbody>
-    <tr><th scope="row">Qualifying clinical minutes/month</th>{schedules.map((s, i) => <td key={i}>{number(s.qualifyingClinicalMinutes)}</td>)}</tr>
+  const labels = armLabels(inputs)
+  return <div className="study-table-wrap"><table className="study-table"><thead><tr><th scope="col">Payment basis</th>{labels.map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>
+    <tr><th scope="row">Qualifying clinical minutes / active month</th>{schedules.map((s, i) => <td key={i}>{number(s.qualifyingClinicalMinutes)}</td>)}</tr>
     <tr><th scope="row">Management code</th>{schedules.map((s, i) => <td key={i}>{s.mode === 'medicare2026' ? `${s.managementCode || 'None'}${s.additionalUnits ? ` + ${s.additionalUnits} × 99458` : ''}` : s.mode === 'none' ? 'No reimbursement' : 'Custom benchmark'}</td>)}</tr>
     <tr><th scope="row">Allowed recurring amount / qualifying month</th>{schedules.map((s, i) => <td key={i}>{money(s.monthlyBenchmark)}</td>)}</tr>
     <tr><th scope="row">Expected collections / active month</th>{schedules.map((s, i) => <td key={i}>{money(s.monthlyBenchmark * inputs.qualificationShare * inputs.collectionShare)}</td>)}</tr>
@@ -70,9 +77,10 @@ export function PairedPaymentSummary({ inputs }) {
   </tbody></table></div>
 }
 
-export function PatientTaskLedger({ patient }) {
-  return <details className="sim-cost-details sim-patient-ledger"><summary>Inspect {patient.id}: staff tasks and costs in both pathways</summary>
-    {['baseline', 'integrated'].map(arm => <div key={arm}><h4>{arm === 'baseline' ? 'Physician-led baseline' : 'With pharmacist integration'}</h4><div className="sim-table-wrap"><table><thead><tr><th scope="col">Professional</th><th scope="col">Task</th><th scope="col">Minutes in budget year</th><th scope="col">Cost</th></tr></thead><tbody>{(patient[arm].taskRecords || []).filter(task => task.minutes > 0).map((task, i) => <tr key={`${task.role}-${task.task}-${i}`}><th scope="row">{roleNames[task.role] || task.role}</th><td>{task.task}</td><td>{number(task.minutes)}</td><td>{money(task.cost)}</td></tr>)}{!(patient[arm].taskRecords || []).some(task => task.minutes > 0) && <tr><td colSpan="4">No staff time for this patient in this pathway.</td></tr>}</tbody></table></div><p>Collections: {money(patient[arm].revenue)} · Total variable costs: {money(patient[arm].programCost)} · Contribution before fixed costs: {money(patient[arm].operatingMargin)}</p></div>)}
-    <p className="sim-footnote">Task times and costs are generated by the applied assumptions. Vendor charges appear in total variable costs but are not staff minutes. No task is a recorded clinical encounter.</p>
+export function PatientTaskLedger({ patient, inputs }) {
+  const labels = inputs ? armLabels(inputs) : ['Physician-delivered RPM', 'Pharmacist-delivered RPM']
+  return <details className="sim-cost-details sim-patient-ledger"><summary>Inspect {patient.id}: separate staff tasks and costs</summary>
+    {['baseline', 'integrated'].map((arm, index) => <div key={arm}><h4>{labels[index]}</h4><div className="sim-table-wrap"><table><thead><tr><th scope="col">Professional</th><th scope="col">Task</th><th scope="col">Minutes in budget year</th><th scope="col">Cost</th></tr></thead><tbody>{(patient[arm].taskRecords || []).filter(task => task.minutes > 0).map((task, i) => <tr key={`${task.role}-${task.task}-${i}`}><th scope="row">{roleNames[task.role] || task.role}</th><td>{task.task}</td><td>{number(task.minutes)}</td><td>{money(task.cost)}</td></tr>)}{!(patient[arm].taskRecords || []).some(task => task.minutes > 0) && <tr><td colSpan="4">No staff time for this patient in this program.</td></tr>}</tbody></table></div><p>Collections: {money(patient[arm].revenue)} · Variable costs: {money(patient[arm].programCost)} · Margin before fixed costs: {money(patient[arm].operatingMargin)}</p></div>)}
+    <p className="sim-footnote">All tasks and costs are simulated. Vendor charges appear in variable costs but are not staff minutes. Program fixed costs are included only in the full-cohort results.</p>
   </details>
 }
