@@ -1,4 +1,6 @@
-const assumption = 'Illustrative investigator assumption; not a measured clinic estimate.'
+import { FINANCIAL_EVIDENCE, FINANCIAL_BENCHMARKS, RPM_MEDICARE_2026_FEES } from '../data/integrationFinancialEvidence.js'
+export { FINANCIAL_EVIDENCE } from '../data/integrationFinancialEvidence.js'
+const evidenceUrls = (...ids) => FINANCIAL_EVIDENCE.filter(source => ids.includes(source.id)).map(source => source.url)
 const field = (label, group, value, unit, min, max, description, extra = {}) => ({ label, group, default: value, unit, min, max, step: 'any', description, evidenceType: 'Assumption', ...extra })
 const probability = (label, group, value, description, extra = {}) => field(label, group, value, 'probability', 0, 1, description, { step: .01, ...extra })
 export const INPUT_DEFINITIONS = {
@@ -15,24 +17,30 @@ export const INPUT_DEFINITIONS = {
   recontactUptake: probability('Uptake after recontacting physician noninitiators', 'Population and recruitment', null, 'Null disables recontact. A numeric value enables an additional offer with an independent retry draw; zero still incurs unsuccessful outreach.', { nullable: true }),
   startMonth: field('New RPM and medication-action month', 'Timing and service', 7, 'month of budget year', 1, 12, 'All new starts and modeled medication actions occur at the beginning of this month; existing RPM starts in month 1.', { step: 1, integer: true }),
   monthlyRetention: probability('Monthly RPM continuation', 'Timing and service', .98, 'Probability of continuing into each subsequent month; all participants contribute their first service month.'),
-  qualificationShare: probability('Revenue-qualifying active months', 'Financial boundary', .7, 'Assumed proportion of active service months meeting the relevant contract and billing requirements. A first reading alone does not qualify a month.'),
-  monthlyRevenueBenchmark: field('Revenue per qualifying month', 'Financial boundary', 100, 'USD/month', 0, 10000, 'Investigator-selected blended benchmark, not a verified CPT payment or guaranteed entitlement.'),
+  reimbursementMode: { label: 'RPM reimbursement method', group: 'Financial boundary', default: 'medicare2026', unit: '', options: ['medicare2026', 'custom', 'none'], description: 'Medicare 2026 benchmarks select a management tier from pharmacist clinical minutes; custom uses an investigator contract benchmark; none excludes all RPM receipts. This is not a claim adjudication engine.', evidenceType: 'Model choice with published benchmarks', sourceUrls: evidenceUrls('medpac-2026', 'cms-rpm') },
+  qualificationShare: probability('Revenue-qualifying active months', 'Financial boundary', .7, 'Assumed pooled share of active months meeting every requirement for the selected recurring bundle, including eligible billing arrangement, device data and interactive clinical service. Device and management qualification are not separately simulated. A first reading alone does not qualify a month.', { sourceUrls: evidenceUrls('cms-rpm') }),
+  setupQualificationShare: probability('New starts qualifying for setup payment', 'Financial boundary', .7, 'Assumed share of unique new RPM starts qualifying for one setup payment. Existing participants and duplicate referral channels do not generate another setup. Independent of recurring-month qualification.', { sourceUrls: evidenceUrls('cms-rpm') }),
+  monthlyRevenueBenchmark: field('Custom revenue per qualifying month', 'Financial boundary', 100, 'USD/month', 0, 10000, 'Used only in custom mode. Investigator contract amount, not automatically mapped to a CPT code or increased with clinical time.'),
+  customSetupRevenueBenchmark: field('Custom payment per qualifying setup', 'Financial boundary', 21.71, 'USD/setup', 0, 10000, 'Used only in custom mode. Starts from the 2026 Medicare setup benchmark, but represents an editable contract assumption.', { evidenceType: 'Benchmark-informed contract assumption', sourceUrls: evidenceUrls('medpac-2026') }),
   collectionShare: probability('Collection share', 'Financial boundary', .9, 'Fraction of the revenue benchmark collected.'),
-  externalPayerShare: probability('Share paid by external payers', 'Financial boundary', 0, 'Internal plan-to-owned-clinic transfers are excluded. Set from the external payer mix; switching perspective does not set this automatically.'),
-  retainedDrugSavingsShare: probability('Medication savings retained by the system', 'Financial boundary', 1, 'Fraction of net medication savings financially retained by the consolidated organization. Exclude drug costs borne by outside payers. Independent of the RPM payer mix; clinic perspective excludes medication savings regardless.'),
-  pharmacistWage: field('Loaded pharmacist wage', 'Costs and staffing', 96.5, 'USD/hour', 0, 1000, assumption),
-  supportWage: field('Loaded support-staff wage', 'Costs and staffing', 40, 'USD/hour', 0, 1000, assumption),
+  externalPayerShare: probability('Share paid by external payers', 'Financial boundary', .5, 'Illustrative 50% external payer mix, not Kaiser data. Internal plan-to-owned-clinic transfers are excluded. Switching perspective does not set this automatically.'),
+  retainedDrugSavingsShare: probability('Medication savings retained by the system', 'Financial boundary', .5, 'Illustrative 50% retention of net medication savings by the consolidated organization. Exclude costs borne by outside payers. Independent of the RPM payer mix; clinic perspective excludes medication savings regardless.'),
+  pharmacistWage: field('Loaded pharmacist wage', 'Costs and staffing', FINANCIAL_BENCHMARKS.pharmacistWage, 'USD/hour', 0, 1000, 'BLS May 2025 national mean $67.75 × June 2026 healthcare compensation/wage ratio (49.93/35.13). Approximate loaded cost, not observed 2026 local pay. Do not add benefits again.', { evidenceType: 'Derived national benchmark; cross-year transfer', sourceUrls: evidenceUrls('bls-wages-2025', 'bls-benefits-2026') }),
+  supportWage: field('Loaded nonclinical technician wage', 'Costs and staffing', FINANCIAL_BENCHMARKS.supportWage, 'USD/hour', 0, 1000, 'BLS May 2025 pharmacy technician mean $22.41 × June 2026 healthcare compensation/wage ratio. Nonclinical technical work only; not a nurse or pharmacist rate. Do not add benefits again.', { evidenceType: 'Derived national benchmark; role and cross-year transfer', sourceUrls: evidenceUrls('bls-wages-2025', 'bls-benefits-2026') }),
   physicianReferralCost: field('Cost per physician referral', 'Costs and staffing', 10, 'USD/referral', 0, 1000, 'Same usual referral workload in both scenarios, including unsuccessful referrals.'),
   offerMinutes: field('Pharmacist time per offer', 'Costs and staffing', 5, 'minutes/offer', 0, 120, 'Includes unsuccessful, duplicate and enabled recontact offers.'),
   onboardingMinutes: field('Pharmacist onboarding', 'Costs and staffing', 20, 'minutes/new start', 0, 240, 'One onboarding episode per new participant, after deduplication.'),
-  monitorPharmacistMinutes: field('Pharmacist monitoring', 'Costs and staffing', 10, 'minutes/active month', 0, 240, 'Charged for all active service months, including months that do not qualify for revenue.'),
-  monitorSupportMinutes: field('Support-staff monitoring', 'Costs and staffing', 10, 'minutes/active month', 0, 240, 'Additional support work distinct from pharmacist clinical work.'),
+  monitorPharmacistMinutes: field('Pharmacist clinical monitoring', 'Costs and staffing', 20, 'minutes/active month', 0, 240, 'Hypothetical lower-intensity workload, not an observed average. Charged for every active month. In Medicare mode this selects the potential management tier, conditional on qualifying clinical treatment-management work and all other requirements; more time alone does not establish payment.', { sourceUrls: evidenceUrls('medpac-2026', 'cms-rpm', 'nyu-workload') }),
+  monitorSupportMinutes: field('Nonclinical technician support', 'Costs and staffing', 10, 'minutes/active month', 0, 240, 'Assumed device/connectivity assistance, distinct from clinical work. Charged for every active month and excluded from clinical billing-time thresholds.'),
   reviewMinutes: field('Added pharmacist review and follow-up', 'Costs and staffing', 10, 'minutes/completed review', 0, 240, 'Incremental review/follow-up resource bundle; charged even when no RPM initiation or medication change occurs.'),
-  deviceCost: field('Device per new start', 'Costs and staffing', 100, 'USD/device', 0, 10000, 'One device for each unique new participant; no new device charged to existing participants.'),
-  monthlyTechnologyCost: field('Technology per active month', 'Costs and staffing', 15, 'USD/month', 0, 1000, 'Separate from clinical labor and fixed costs; does not depend on revenue qualification.'),
-  fixedCost: field('Current-program fixed cost', 'Costs and staffing', 5000, 'USD/year', 0, 10000000, 'Counted once in each scenario; not charged again per referral channel.'),
+  deviceCost: field('Cellular BP device per new start', 'Costs and staffing', FINANCIAL_BENCHMARKS.deviceCost, 'USD/device', 0, 10000, 'Transtek cellular BP device component listing. One device per unique new start; no new device for existing patients. Compatibility, tax, shipping and replacement costs are unverified.', { evidenceType: 'Published component price; transfer assumption', sourceUrls: evidenceUrls('device-listing') }),
+  monthlyTechnologyCost: field('RPM software per active month', 'Costs and staffing', FINANCIAL_BENCHMARKS.monthlyTechnologyCost, 'USD/month', 0, 1000, 'SmartClinix technology-only RPM add-on component benchmark, excluding clinical services. Charged for all active months. Device/platform compatibility is unverified.', { evidenceType: 'Published component price; transfer assumption', sourceUrls: evidenceUrls('platform-listing') }),
+  monthlyConnectivityCost: field('Connectivity per active month', 'Costs and staffing', FINANCIAL_BENCHMARKS.monthlyConnectivityCost, 'USD/month', 0, 1000, 'Assumed separate cellular connectivity charge, not a verified vendor quote. Set to zero if included in the selected device/software contract.'),
+  monthlyPlatformBaseCost: field('Core platform per provider per month', 'Costs and staffing', FINANCIAL_BENCHMARKS.monthlyPlatformBaseCost, 'USD/provider-month', 0, 10000, 'SmartClinix Professional plan component benchmark. Charged for 12 months in each scenario, separate from the per-patient RPM add-on; existing institutional licenses may change this incremental cost.', { evidenceType: 'Published component price; transfer assumption', sourceUrls: evidenceUrls('platform-listing') }),
+  platformProviderCount: field('Shared platform provider licenses', 'Costs and staffing', FINANCIAL_BENCHMARKS.platformProviderCount, 'licenses', 0, 10000, 'Assumed number of provider licenses sufficient for the program, charged once per scenario, not per referral channel or patient. Capacity requirements are not established.', { step: 1, integer: true }),
+  fixedCost: field('Other current-program fixed costs', 'Costs and staffing', 5000, 'USD/year', 0, 10000000, 'Assumed nontechnology overhead counted once in each scenario. Excludes the separately listed platform license, variable technology and loaded labor benefits.'),
   addedFixedCost: field('Additional integration fixed cost', 'Costs and staffing', 1000, 'USD/year', 0, 10000000, 'Incremental implementation/capacity cost, counted once in the integrated scenario.'),
-  clinicalMode: { label: 'Deprescribing analysis', group: 'Deprescribing assumptions', default: 'none', unit: '', options: ['none', 'illustrative', 'unestimated'], description: 'none explicitly assumes zero clinical effects/savings in both scenarios; illustrative enables stated assumptions; unestimated keeps endpoints missing.', evidenceType: 'Model choice' },
+  clinicalMode: { label: 'Deprescribing analysis', group: 'Deprescribing assumptions', default: 'illustrative', unit: '', options: ['none', 'illustrative', 'unestimated'], description: 'illustrative uses hypothetical medication-action probabilities, not observed intervention effects; none explicitly assumes zero clinical effects/savings in both scenarios; unestimated keeps endpoints missing.', evidenceType: 'Model choice' },
   lowBpShare: probability('Low BP prompting clinical assessment', 'Deprescribing assumptions', .23, 'Transferred prevalence, including asymptomatic low BP. Low BP does not itself establish overtreatment.', { nullable: true, evidenceType: 'Literature-informed assumption', sourceUrls: ['https://ojs.jaff.org.br/ojs/index.php/jaff/article/view/1367'] }),
   actionBaseline: probability('Usual-care medication action after low BP assessment', 'Deprescribing assumptions', .1, 'Investigator probability of an appropriate one-medicine reduction after assessment; not MINOR 28.6%.', { nullable: true }),
   actionIntegrated: probability('Medication action with added completed review', 'Deprescribing assumptions', .3, 'Used only for patients with a completed MTM review; others retain usual-care probability. Investigator assumption, not MINOR-derived.', { nullable: true }),
@@ -40,20 +48,43 @@ export const INPUT_DEFINITIONS = {
   drugCostPerMonth: field('Net saving per reduced medicine-month', 'Deprescribing assumptions', 10, 'USD/medicine-month', 0, 10000, 'Assumed net savings after substitution/dose adjustment. Clinic does not automatically retain this saving.', { nullable: true })
 }
 export const DEFAULT_INTEGRATION_INPUTS = Object.freeze(Object.fromEntries(Object.entries(INPUT_DEFINITIONS).map(([key, d]) => [key, d.default])))
+function paymentSchedule(p) {
+  const common = { mode: p.reimbursementMode, deviceCodeLabel: null, deviceFee: 0, managementCode: null, managementFee: 0, additionalUnits: 0, monthlyBenchmark: 0, setupFee: 0, qualifyingClinicalMinutes: p.monitorPharmacistMinutes }
+  if (p.reimbursementMode === 'none') return { ...common, notes: ['All RPM receipts are excluded; staffing, devices, software and other program costs remain.'] }
+  if (p.reimbursementMode === 'custom') return { ...common, monthlyBenchmark: p.monthlyRevenueBenchmark, setupFee: p.customSetupRevenueBenchmark, notes: ['Editable contract assumptions, not CPT-coded payments. Clinical minutes do not automatically change a custom payment.', 'Setup and recurring qualification, collections and external payer share still apply.'] }
+  const fees = RPM_MEDICARE_2026_FEES
+  const minutes = p.monitorPharmacistMinutes
+  const additionalUnits = minutes >= 20 ? Math.min(2, Math.floor((minutes - 20) / 20)) : 0
+  const managementCode = minutes >= 20 ? '99457' : minutes >= 10 ? '99470' : null
+  const managementFee = (minutes >= 20 ? fees.management99457 : minutes >= 10 ? fees.management99470 : 0) + additionalUnits * fees.additional99458
+  return { ...common, deviceCodeLabel: '99454 (16+ days) OR 99445 (2–15 days)', deviceFee: fees.device99454, managementCode, managementFee, additionalUnits, monthlyBenchmark: fees.device99454 + managementFee, setupFee: fees.setup99453, notes: [
+    '2026 national nonfacility Medicare benchmarks, subject to geographic, setting, clinician and payer differences; not guaranteed receipts.',
+    'Device codes are alternatives, never summed. The chosen qualifying recurring bundle contains one device payment plus the management tier shown.',
+    'Only pharmacist clinical treatment-management minutes select the tier. Nonclinical technician time, separate onboarding and MTM review time are excluded.',
+    '10–19 minutes uses 99470; 20+ uses 99457, plus one 99458 per full additional 20 minutes. At most two add-on units are modeled as an explicit conservative cap, not a universal payer rule.',
+    'A pooled qualification share represents all remaining billing requirements, including interactive communication and an eligible billing arrangement; time alone is insufficient.'
+  ] }
+}
+export function getRpmPaymentSchedule(inputs = DEFAULT_INTEGRATION_INPUTS) { return paymentSchedule(checked(inputs)) }
 export const INTEGRATION_MODEL_METADATA = {
-  id: 'mtm-rpm-additive-integration', version: '1.0.0', schemaVersion: 1,
-  currency: 'USD', priceYear: 2026, priceBasis: 'All monetary assumptions are constant 2026 USD; no automatic inflation or discounting.',
+  id: 'mtm-rpm-additive-integration', version: '2.0.0', schemaVersion: 2,
+  currency: 'USD', priceYear: 2026, priceBasis: '2026 budget scenario with source-year transfers explicitly documented: May 2025 wages use a June 2026 benefit ratio; vendor component listings and investigator assumptions are not inflation-adjusted automatically.',
   comparator: 'Current RPM program and usual physician referrals versus the same program plus MTM recruitment and review',
   endpoint: 'Additional net financial benefit per 1,000 eligible members during a 12-month budget year; operating margin also reported separately',
   initiation: 'At least one transmitted BP reading; not automatically a revenue-qualifying service month',
-  randomization: 'mulberry32; fixed draws per synthetic patient; shared physician decisions, first-initiation uniform, RPM continuation/qualification draws, low-BP/action and medication-persistence draws across scenarios; independent draw only for explicitly enabled recontact',
+  randomization: 'mulberry32; unchanged fixed version-1 pathway, continuation, monthly qualification and clinical draws. Setup qualification uses a separate FNV-1a patient-keyed seed (setup:seed:syntheticID), shared across scenarios; no extra consumption of the original random stream. Explicit recontact uses its original independent retry draw.',
+  financialEvidence: FINANCIAL_EVIDENCE,
+  medicare2026Fees: RPM_MEDICARE_2026_FEES,
   assumptions: [
     'Existing RPM patients and usual physician referrals are identical in both scenarios. Unique RPM episodes are the union of physician and pharmacist initiations; duplicate offers still cost time.',
     'Known existing RPM participants receive reviews but no new RPM offer/device. Default null recontactUptake prevents offers to unsuccessful physician referrals; a numeric retry probability enables recontact with a separate independent draw.',
     'No exact contact sequence is simulated. Recontact eligibility is a simplified usual-pathway classification, not a claim about real-time concurrent referral scheduling.',
     'New RPM starts and medication reductions occur at the beginning of startMonth. Existing patients receive up to 12 months; new patients only the remaining budget months. Retention is a constant monthly assumption.',
-    'All active months incur service costs. Only qualifying months generate benchmark revenue, multiplied by collection and external payer shares. No automatic reimbursement entitlement is asserted.',
-    'Current fixed costs occur once in each arm; integration fixed costs once in the integrated arm. No capacity limit or discrete hiring steps are modeled.',
+    'All active months incur service costs. Recurring and one-time setup qualification are separate assumptions. Setup payment is at most once per unique new start and never charged for an existing participant. Both revenue components are multiplied by collection and external payer shares.',
+    'Medicare management payment tiers depend on the assumed pharmacist clinical minutes only, conditional on all other billing requirements. Device codes 99454 and 99445 are alternatives. At most two 99458 add-on units are modeled, a conservative analytic cap. A pooled monthly qualification fraction is not a code-level claims engine.',
+    'The default 20 clinical and 10 nonclinical support minutes, 50% external payer share and 50% medication savings retention are hypothetical; neither reimbursement eligibility nor the staffing workload is established by the benchmark rates.',
+    'Vendor prices are separate component benchmarks, not a verified interoperable package. Connectivity $5/month and sufficient capacity under one shared provider license are assumptions. Clinical services are costed separately from technology-only software.',
+    'Platform base licenses cost 12 times the monthly fee times license count in each scenario; other fixed costs exclude this fee and loaded labor benefits. Integration fixed costs occur once. No capacity limit or discrete hiring steps are modeled.',
     'none is an explicit zero-clinical-benefit assumption, not missing evidence. unestimated or missing required clinical inputs yields null clinical endpoints, drug savings and total net financial benefit; operating margin remains estimable.',
     'Illustrative actions require active RPM at the assessment month, assumed low BP and the conditional action probability. Existing patients who left RPM before startMonth have no modeled action. One medicine per action is assumed; this is not an observed medication-level persistence estimate. After action, medication persistence is independent of subsequent RPM retention.',
     'Medication persistence is measured 12 months after reduction, potentially after the budget year. Only within-budget medication-months generate year-one savings. No symptoms, BP responders, falls or CV savings are estimated.',
@@ -77,6 +108,13 @@ export function validateIntegrationInputs(inputs) {
 }
 function checked(inputs) { const errors = validateIntegrationInputs(inputs); if (Object.keys(errors).length) { const e = new RangeError(JSON.stringify(errors)); e.errors = errors; throw e } return { ...inputs } }
 function rng(seed) { let x = seed >>> 0; return () => { x = (x + 0x6d2b79f5) >>> 0; let t = Math.imul(x ^ x >>> 15, x | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296 } }
+function setupDraw(seed, patientId) {
+  let hash = 2166136261
+  for (const character of `setup:${seed}:${patientId}`) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619) >>> 0
+  return rng(hash)()
+}
+const COST_KEYS = ['reviews', 'offers', 'onboarding', 'pharmacistMonitoring', 'technicalSupport', 'physicianReferrals', 'devices', 'software', 'connectivity', 'platformBase', 'otherFixed', 'addedFixed']
+const emptyCosts = () => Object.fromEntries(COST_KEYS.map(key => [key, 0]))
 const clinicalKnown = p => p.clinicalMode !== 'unestimated' && (p.clinicalMode === 'none' || ['lowBpShare', 'actionBaseline', 'actionIntegrated', 'persistence12', 'drugCostPerMonth'].every(k => p[k] !== null))
 const geometricMonths = (months, retention) => { let total = 0; for (let k = 0; k < months; k++) total += retention ** k; return total }
 function pathway(p, existing, physicianReferred, aUptake, bUptake, population, completion, offer, retry) {
@@ -110,8 +148,24 @@ function arm(p, state, integrated, draws = null) {
   const offers = integrated ? Number(state.pharmacist.offered) : 0
   const pharmacistHours = (reviews * p.reviewMinutes + offers * p.offerMinutes + Number(newInitiation) * p.onboardingMinutes + activeMonths * p.monitorPharmacistMinutes) / 60
   const supportHours = activeMonths * p.monitorSupportMinutes / 60
-  const programCost = Number(state.physician.referred) * p.physicianReferralCost + pharmacistHours * p.pharmacistWage + supportHours * p.supportWage + Number(newInitiation) * p.deviceCost + activeMonths * p.monthlyTechnologyCost
-  const revenue = qualifiedMonths * p.monthlyRevenueBenchmark * p.collectionShare * p.externalPayerShare
+  const costBreakdown = {
+    ...emptyCosts(),
+    reviews: reviews * p.reviewMinutes / 60 * p.pharmacistWage,
+    offers: offers * p.offerMinutes / 60 * p.pharmacistWage,
+    onboarding: Number(newInitiation) * p.onboardingMinutes / 60 * p.pharmacistWage,
+    pharmacistMonitoring: activeMonths * p.monitorPharmacistMinutes / 60 * p.pharmacistWage,
+    technicalSupport: supportHours * p.supportWage,
+    physicianReferrals: Number(state.physician.referred) * p.physicianReferralCost,
+    devices: Number(newInitiation) * p.deviceCost,
+    software: activeMonths * p.monthlyTechnologyCost,
+    connectivity: activeMonths * p.monthlyConnectivityCost
+  }
+  const programCost = Object.values(costBreakdown).reduce((sum, cost) => sum + cost, 0)
+  const qualifiedSetups = newInitiation ? (draws ? Number(draws.setup < p.setupQualificationShare) : p.setupQualificationShare) : 0
+  const schedule = paymentSchedule(p)
+  const monthlyRevenue = qualifiedMonths * schedule.monthlyBenchmark * p.collectionShare * p.externalPayerShare
+  const setupRevenue = qualifiedSetups * schedule.setupFee * p.collectionShare * p.externalPayerShare
+  const revenue = monthlyRevenue + setupRevenue
   let clinical = { actions: null, sustainedAt12Months: null, medicationMonths: null }; let drugSavings = null
   if (clinicalKnown(p)) {
     clinical = { actions: 0, sustainedAt12Months: 0, medicationMonths: 0 }
@@ -130,20 +184,27 @@ function arm(p, state, integrated, draws = null) {
     drugSavings = clinical.medicationMonths * (p.drugCostPerMonth ?? 0)
   }
   const operatingMargin = revenue - programCost
-  return { participating, newInitiation, activeMonths, qualifiedMonths, activeAtAssessment, pharmacistHours, supportHours, revenue, programCost, drugSavings, operatingMargin, netFinancialBenefit: drugSavings === null ? null : operatingMargin + (p.perspective === 'consolidated' ? drugSavings * p.retainedDrugSavingsShare : 0), clinical }
+  return { participating, newInitiation, activeMonths, qualifiedMonths, qualifiedSetups, activeAtAssessment, pharmacistHours, supportHours, monthlyRevenue, setupRevenue, revenue, costBreakdown, programCost, drugSavings, operatingMargin, netFinancialBenefit: drugSavings === null ? null : operatingMargin + (p.perspective === 'consolidated' ? drugSavings * p.retainedDrugSavingsShare : 0), clinical }
 }
-const NUMERIC_KEYS = ['existingPatients', 'newInitiations', 'totalParticipants', 'physicianReferrals', 'offers', 'duplicateOffers', 'reviews', 'activeMonths', 'qualifiedMonths', 'pharmacistHours', 'supportHours', 'revenue', 'programCost', 'drugSavings', 'operatingMargin', 'netFinancialBenefit']
-function emptyArm(known) { return { ...Object.fromEntries(NUMERIC_KEYS.map(k => [k, !known && ['drugSavings', 'netFinancialBenefit'].includes(k) ? null : 0])), clinical: { actions: known ? 0 : null, sustainedAt12Months: known ? 0 : null, medicationMonths: known ? 0 : null } } }
+const NUMERIC_KEYS = ['existingPatients', 'newInitiations', 'totalParticipants', 'physicianReferrals', 'offers', 'duplicateOffers', 'reviews', 'activeMonths', 'qualifiedMonths', 'qualifiedSetups', 'pharmacistHours', 'supportHours', 'monthlyRevenue', 'setupRevenue', 'revenue', 'programCost', 'drugSavings', 'operatingMargin', 'netFinancialBenefit']
+function emptyArm(known) { return { ...Object.fromEntries(NUMERIC_KEYS.map(k => [k, !known && ['drugSavings', 'netFinancialBenefit'].includes(k) ? null : 0])), costBreakdown: emptyCosts(), clinical: { actions: known ? 0 : null, sustainedAt12Months: known ? 0 : null, medicationMonths: known ? 0 : null } } }
 function accumulate(total, patient, integrated, weight) {
   const row = integrated ? patient.integrated : patient.baseline
   const values = { ...row, existingPatients: Number(patient.existingRpm), newInitiations: Number(row.newInitiation), totalParticipants: Number(row.participating), physicianReferrals: Number(patient.physician.referred), offers: integrated ? Number(patient.pharmacist.offered) : 0, duplicateOffers: integrated ? Number(patient.pharmacist.duplicateOffer) : 0, reviews: integrated ? Number(patient.pharmacist.reviewCompleted) : 0 }
   for (const key of NUMERIC_KEYS) if (total[key] !== null) total[key] += values[key] * weight
+  for (const key of COST_KEYS) total.costBreakdown[key] += row.costBreakdown[key] * weight
   for (const key of Object.keys(total.clinical)) if (total.clinical[key] !== null) total.clinical[key] += row.clinical[key] * weight
 }
 function finish(p, baseline, integrated) {
-  for (const [row, fixed] of [[baseline, p.fixedCost], [integrated, p.fixedCost + p.addedFixedCost]]) { row.fixedCost = fixed; row.variableCost = row.programCost; row.programCost += fixed; row.operatingMargin -= fixed; if (row.netFinancialBenefit !== null) row.netFinancialBenefit -= fixed }
+  for (const [row, additional] of [[baseline, 0], [integrated, p.addedFixedCost]]) {
+    row.costBreakdown.platformBase = 12 * p.monthlyPlatformBaseCost * p.platformProviderCount
+    row.costBreakdown.otherFixed = p.fixedCost; row.costBreakdown.addedFixed = additional
+    const fixed = row.costBreakdown.platformBase + p.fixedCost + additional
+    row.fixedCost = fixed; row.variableCost = row.programCost; row.programCost += fixed; row.operatingMargin -= fixed; if (row.netFinancialBenefit !== null) row.netFinancialBenefit -= fixed
+  }
   const delta = Object.fromEntries([...NUMERIC_KEYS, 'fixedCost', 'variableCost'].map(k => [k, baseline[k] === null || integrated[k] === null ? null : integrated[k] - baseline[k]]))
   delta.clinical = Object.fromEntries(Object.keys(baseline.clinical).map(k => [k, baseline.clinical[k] === null ? null : integrated.clinical[k] - baseline.clinical[k]]))
+  delta.costBreakdown = Object.fromEntries(COST_KEYS.map(key => [key, integrated.costBreakdown[key] - baseline.costBreakdown[key]]))
   delta.marginPer1000 = delta.operatingMargin / p.N * 1000
   delta.netBenefitPer1000 = delta.netFinancialBenefit === null ? null : delta.netFinancialBenefit / p.N * 1000
   delta.roi = delta.programCost > 0 && delta.netFinancialBenefit !== null ? delta.netFinancialBenefit / delta.programCost : null
@@ -172,7 +233,7 @@ export function simulateIntegrationStudy(inputs = DEFAULT_INTEGRATION_INPUTS) {
   const patients = Array.from({ length: p.N }, (_, i) => {
     const existing = random() < p.existingRpmShare; const referred = random() < p.r; const initiation = random()
     const population = random() < p.f; const complete = random() < p.c; const offered = random() < p.o; const retry = random() < (p.recontactUptake ?? 0)
-    const draws = { continuation: Array.from({ length: 11 }, random), qualification: Array.from({ length: 12 }, random), low: random(), action: random(), persistence: Array.from({ length: 12 }, random) }
+    const draws = { continuation: Array.from({ length: 11 }, random), qualification: Array.from({ length: 12 }, random), low: random(), action: random(), persistence: Array.from({ length: 12 }, random), setup: setupDraw(p.seed, `S${String(i + 1).padStart(4, '0')}`) }
     const patient = { id: `S${String(i + 1).padStart(4, '0')}`, ...pathway(p, existing, referred, initiation < p.qA, initiation < p.qB, population, complete, offered, retry) }
     patient.baseline = arm(p, patient, false, draws); patient.integrated = arm(p, patient, true, draws)
     return patient
@@ -181,7 +242,14 @@ export function simulateIntegrationStudy(inputs = DEFAULT_INTEGRATION_INPUTS) {
 }
 export function getIntegrationScenarios(inputs = DEFAULT_INTEGRATION_INPUTS) {
   const p = checked(inputs)
+  const evidence20 = { ...p, ...FINANCIAL_BENCHMARKS, reimbursementMode: 'medicare2026', monitorPharmacistMinutes: 20, monitorSupportMinutes: 10, qualificationShare: .7, setupQualificationShare: .7, collectionShare: .9, externalPayerShare: .5, retainedDrugSavingsShare: .5 }
   return [
+    { id: 'evidence-20-mixed', name: 'Benchmark costs; assumed 20 clinical minutes and 50% external receipts', inputs: evidence20 },
+    { id: 'evidence-10-mixed', name: '10 clinical minutes; lower Medicare management tier', inputs: { ...evidence20, monitorPharmacistMinutes: 10 } },
+    { id: 'fully-external-20', name: '20 clinical minutes; 100% external RPM receipts', inputs: { ...evidence20, externalPayerShare: 1 } },
+    { id: 'qualification-90', name: '100% external receipts; 90% qualifying months (70% setups)', inputs: { ...evidence20, externalPayerShare: 1, qualificationShare: .9 } },
+    { id: 'nyu-workload', name: '100% external receipts; NYU NP workload transferred to pharmacist: 58.33 minutes', inputs: { ...evidence20, externalPayerShare: 1, monitorPharmacistMinutes: 10 * 52 / 12 + 15 } },
+    { id: 'zero-rpm-revenue', name: 'No RPM receipts; all service costs retained', inputs: { ...p, reimbursementMode: 'none' } },
     { id: 'conservative', name: 'No added deprescribing benefit', inputs: { ...p, clinicalMode: 'none' } },
     { id: 'illustrative', name: 'Illustrative deprescribing assumptions', inputs: { ...p, clinicalMode: 'illustrative', lowBpShare: .23, actionBaseline: .1, actionIntegrated: .3, persistence12: .694, drugCostPerMonth: 10 } },
     { id: 'no-external-revenue', name: 'No external reimbursement', inputs: { ...p, externalPayerShare: 0 } },
@@ -209,18 +277,19 @@ export function findOfferThreshold(inputs = DEFAULT_INTEGRATION_INPUTS, { steps 
 export function createIntegrationExport(run) {
   const replay = simulateIntegrationStudy(checked(run?.inputs))
   for (const key of ['metadata', 'patients', 'expected', 'actual']) if (canonical(run[key]) !== canonical(replay[key])) throw new Error(`Integration ${key} failed exact replay.`)
-  return { schemaVersion: 1, modelVersion: INTEGRATION_MODEL_METADATA.version, modelId: INTEGRATION_MODEL_METADATA.id, ...clone(replay) }
+  return { schemaVersion: 2, modelVersion: INTEGRATION_MODEL_METADATA.version, modelId: INTEGRATION_MODEL_METADATA.id, ...clone(replay) }
 }
 export function verifyIntegrationExport(bundle) {
   const keys = ['schemaVersion', 'modelVersion', 'modelId', 'inputs', 'metadata', 'patients', 'expected', 'actual']
-  if (!bundle || Object.keys(bundle).sort().join(',') !== keys.sort().join(',') || bundle.schemaVersion !== 1 || bundle.modelVersion !== INTEGRATION_MODEL_METADATA.version || bundle.modelId !== INTEGRATION_MODEL_METADATA.id) throw new Error('Integration model or export schema mismatch.')
+  if (bundle?.schemaVersion === 1 || bundle?.modelVersion === '1.0.0') throw new Error('Version 1 integration exports cannot be replayed with model 2.0.0: reimbursement and cost accounting changed. Keep the original export with its version 1 engine; create a new version 2 scenario explicitly.')
+  if (!bundle || Object.keys(bundle).sort().join(',') !== keys.sort().join(',') || bundle.schemaVersion !== 2 || bundle.modelVersion !== INTEGRATION_MODEL_METADATA.version || bundle.modelId !== INTEGRATION_MODEL_METADATA.id) throw new Error('Integration model or export schema mismatch; expected model 2.0.0 and schema 2.')
   createIntegrationExport(bundle); return bundle
 }
 const csvCell = value => '"' + String(value ?? '').replace(/"/g, '""') + '"'
 export function integrationExportCsv(bundle) {
   verifyIntegrationExport(bundle)
   const columns = [...NUMERIC_KEYS, 'marginPer1000', 'netBenefitPer1000']
-  const rows = [['model_version', 'seed', 'basis', 'scenario', ...columns, 'clinical_json', 'inputs_json', 'metadata_json']]
-  for (const basis of ['expected', 'actual']) for (const scenario of ['baseline', 'integrated', 'delta']) { const row = bundle[basis][scenario]; rows.push([bundle.modelVersion, bundle.inputs.seed, basis, scenario, ...columns.map(k => row[k] ?? ''), JSON.stringify(row.clinical), JSON.stringify(bundle.inputs), JSON.stringify(bundle.metadata)]) }
+  const rows = [['model_version', 'seed', 'basis', 'scenario', ...columns, 'cost_breakdown_json', 'clinical_json', 'inputs_json', 'metadata_json']]
+  for (const basis of ['expected', 'actual']) for (const scenario of ['baseline', 'integrated', 'delta']) { const row = bundle[basis][scenario]; rows.push([bundle.modelVersion, bundle.inputs.seed, basis, scenario, ...columns.map(k => row[k] ?? ''), JSON.stringify(row.costBreakdown), JSON.stringify(row.clinical), JSON.stringify(bundle.inputs), JSON.stringify(bundle.metadata)]) }
   return '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n') + '\r\n'
 }

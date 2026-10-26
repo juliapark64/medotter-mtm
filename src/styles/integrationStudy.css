@@ -80,5 +80,19 @@
 .study-notice { background:#e0f2eb; color:#235e51; padding:13px 18px; border-radius:8px; margin:14px 0; font-size:12px; line-height:1.6; }
 .study-export-row { display:flex; justify-content:space-between; align-items:center; gap:16px; padding-top:20px; font-size:11px; }
 .study-export-row > div { display:flex; gap:8px; flex-wrap:wrap; }
+.study-assumption-note { font-size:12px; line-height:1.7; color:#4d657e; border-top:1px solid #d8e3ef; padding:14px 0; margin-top:12px; }
+.study-payment-summary { background:#edf5fb; border:1px solid #c7ddec; padding:20px; border-radius:10px; }
+.study-payment-summary > p:not(.study-eyebrow) { font-size:12px; line-height:1.8; color:#3e5b76; margin:14px 0; }
+.study-payment-summary > a { font-size:12px; }
+.study-payment-values { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; }
+.study-payment-values span { font-size:11px; color:#526b84; line-height:1.6; display:block; }
+.study-payment-values strong { display:block; font-size:25px; color:#123d77; margin-top:8px; font-variant-numeric:tabular-nums; }
+.study-payment-values small { display:block; font-weight:500; font-size:11px; color:#526b84; margin-top:5px; }
+.study-section-link { margin-top:18px; }
+.study-field-source { flex-wrap:wrap; font-size:11px; }
+.study-break-even { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.study-break-even strong { overflow-wrap:anywhere; }
+@media (max-width:850px) { .study-break-even { grid-template-columns:1fr; } }
+@media (max-width:600px) { .study-payment-values { grid-template-columns:1fr; gap:16px; } }
 @media (max-width:800px) { .study-bridge {grid-template-columns:1fr 1fr;} .study-shell{padding-left:20px;padding-right:20px;} .study-metric{padding:18px;} .study-metric strong{font-size:27px;} .study-flow{grid-template-columns:1fr 1fr;} }
 @media (max-width:600px) { .study-hero{padding-top:36px;} .study-hero-bottom,.study-scenario-bar,.study-actions,.study-export-row{flex-direction:column;align-items:stretch;} .study-metrics,.study-fields,.study-break-even{grid-template-columns:1fr;} .study-metrics{gap:10px;} .study-metric strong{font-size:32px;margin:8px 0;} .study-card{padding:20px;} .study-tabs button{padding:12px 10px;} .study-bridge{grid-template-columns:1fr;} .study-action-buttons{flex-wrap:wrap;} .study-scenario-bar label{max-width:100%;} }

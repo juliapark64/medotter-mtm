@@ -168,6 +168,27 @@
 .recruitment-sim .sim-shared-model p { max-width:780px; font-size:12px; line-height:1.75; color:#607086; margin-top:9px; }
 .recruitment-sim .sim-shared-links { display:flex; flex-direction:column; align-items:flex-start; gap:17px; flex-shrink:0; }
 .recruitment-sim a.sim-button { display:inline-flex; align-items:center; justify-content:center; text-align:center; text-decoration:none; }
+.recruitment-sim .sim-finance-assumptions { margin:0 0 20px; padding:17px 20px; border:1px solid #d6e1ec; border-radius:12px; background:#fff; }
+.recruitment-sim .sim-finance-assumptions>summary { cursor:pointer; color:#31516f; font-size:13px; font-weight:700; line-height:1.7; }
+.recruitment-sim .sim-finance-assumptions>summary>span { margin-left:12px; color:#607086; font-size:11px; font-weight:500; }
+.recruitment-sim .sim-finance-assumption-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; margin-top:22px; }
+.recruitment-sim .sim-finance-assumption-grid h3, .recruitment-sim .sim-receipt-results h3 { font-size:14px; font-weight:750; color:#315477; margin-bottom:10px; }
+.recruitment-sim .sim-finance-assumption-grid strong { font-size:21px; color:#1d6672; font-variant-numeric:tabular-nums; }
+.recruitment-sim .sim-finance-assumption-grid strong small { font-size:11px; color:#607086; font-weight:500; }
+.recruitment-sim .sim-finance-assumption-grid p, .recruitment-sim .sim-finance-assumption-note, .recruitment-sim .sim-finance-sources p, .recruitment-sim .sim-payment-notes { font-size:11px; line-height:1.75; color:#607086; margin-top:9px; }
+.recruitment-sim .sim-finance-assumption-note { margin-top:16px; }
+.recruitment-sim .sim-finance-assumption-note a, .recruitment-sim .sim-finance-sources a { color:#2450a7; font-weight:650; text-decoration:underline; text-underline-offset:3px; }
+.recruitment-sim .sim-finance-sources { margin-top:18px; padding-top:15px; border-top:1px solid #e0e8ef; }
+.recruitment-sim .sim-finance-sources summary, .recruitment-sim .sim-cost-details summary { cursor:pointer; font-size:12px; font-weight:700; color:#315477; line-height:1.6; }
+.recruitment-sim .sim-finance-sources ul { display:grid; grid-template-columns:1fr 1fr; gap:16px 24px; margin-top:17px; }
+.recruitment-sim .sim-finance-sources a { font-size:11px; line-height:1.6; }
+.recruitment-sim .sim-finance-sources p { margin-top:5px; }
+.recruitment-sim .sim-payment-notes { padding-left:18px; list-style:disc; }
+.recruitment-sim .sim-payment-notes li+li { margin-top:6px; }
+.recruitment-sim .sim-receipt-results { margin-top:25px; padding-top:22px; border-top:1px solid #e0e8ef; }
+.recruitment-sim .sim-receipt-results>p { font-size:11px; line-height:1.75; color:#607086; margin-bottom:15px; }
+.recruitment-sim .sim-cost-details { margin-top:18px; padding-top:16px; border-top:1px solid #e0e8ef; }
+.recruitment-sim .sim-cost-details .sim-table-wrap { margin-top:13px; }
 @media(max-width:1050px) {
   .recruitment-sim .sim-usual-care { grid-template-columns:150px minmax(0,1fr); }
   .recruitment-sim .sim-context-copy { padding:12px; }
@@ -181,6 +202,9 @@
   .recruitment-sim .sim-phase-content { padding:20px 16px; }
   .recruitment-sim .sim-phase-content h3 { font-size:18px; }
   .recruitment-sim .sim-inspection-summary { padding:18px 16px; }
+  .recruitment-sim .sim-finance-assumptions { padding:16px; }
+  .recruitment-sim .sim-finance-assumptions>summary>span { display:block; margin-left:0; margin-top:4px; }
+  .recruitment-sim .sim-finance-assumption-grid, .recruitment-sim .sim-finance-sources ul { grid-template-columns:1fr; gap:18px; }
 }
 @media(max-width:480px) {
   .recruitment-sim .sim-usual-care { grid-template-columns:1fr; }

@@ -1,5 +1,7 @@
 # Recruitment microsimulation methods and replay
 
+**Archived model:** this document describes the original recruitment-only engine and its version 1 exports. The current website's calculator and simulation use the additive integration model, **version 2.0.0/schema 2**, documented in [integration study methods](integration-study-methods.md). That model retains physician recruitment in both arms and adds pharmacist recruitment, deprescribing, service costs and monthly/setup collections. The alternative-pathway equations below must not be used as the current study's incremental financial endpoint. Original recruitment exports remain tied to their own engine and are not migrated to the integration model.
+
 The recruitment engine compares two **alternative** entry pathways for the same synthetic RPM-eligible cohort: physician referral and an RPM offer through a completed medication review. It is a patient-level Bernoulli simulation of recruitment stages, with an analytic cohort calculation alongside it. It does not calculate costs, clinical benefits, or the existing budget calculator's results.
 
 The endpoint is **RPM initiation: at least one transmitted blood pressure reading during the modeled 12-month recruitment period**. Administrative enrollment alone does not meet this definition. The animation illustrates the stages; it does not represent actual appointment duration or calendar time.

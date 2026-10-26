@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useIntegrationStudy } from '../context/IntegrationStudyContext'
+import { FINANCIAL_EVIDENCE, getRpmPaymentSchedule } from '../lib/integrationStudy'
 import rooms from '../assets/simulation/physician-pharmacy-rooms.png'
 import patientSprite from '../assets/simulation/synthetic-patient.png'
 import '../styles/recruitmentSimulation.css'
@@ -34,6 +35,7 @@ const signed = value => known(value) ? `${value > 0 ? '+' : ''}${number(value)}`
 const money = value => known(value) ? value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }) : 'Not estimated'
 const difference = (a, b) => known(a) && known(b) ? a - b : null
 const yesNo = value => value ? 'Yes' : 'No'
+const percent = value => known(value) ? `${number(value * 100)}%` : 'Not estimated'
 
 function rpmStatus(patient) {
   if (patient.existingRpm) return 'Existing RPM continues'
@@ -58,7 +60,8 @@ function offerStatus(patient) {
   return 'RPM not offered'
 }
 
-function phaseContent(patient, phase, perspective, clinicalMode) {
+function phaseContent(patient, phase, inputs) {
+  const { perspective, clinicalMode } = inputs
   const a = patient.baseline
   const b = patient.integrated
   switch (phase) {
@@ -80,12 +83,13 @@ function phaseContent(patient, phase, perspective, clinicalMode) {
     }
     case 2: return {
       title: b.participating ? 'Monitoring contributes service months' : 'No RPM service in this realization',
-      note: 'These are modeled service-month totals for the budget year. Playback speed does not represent a clinical calendar.',
+      note: `These are modeled service-month totals for the budget year, not elapsed playback time. Staffing assumes ${number(inputs.monitorPharmacistMinutes)} pharmacist and ${number(inputs.monitorSupportMinutes)} nonclinical technical-support minutes per active month. Technical support does not count toward the clinical treatment-management time threshold.`,
       fields: [
         ['Current program · active months', number(a.activeMonths)],
         ['With MTM integration · active months', number(b.activeMonths)],
         ['Added service months', signed(b.activeMonths - a.activeMonths)],
         ['With MTM · reimbursement-qualified months', number(b.qualifiedMonths)],
+        ['With MTM · one-time setup qualified', yesNo(b.qualifiedSetups)],
       ],
     }
     case 3: return {
@@ -105,10 +109,12 @@ function phaseContent(patient, phase, perspective, clinicalMode) {
     }
     default: return {
       title: 'This patient’s incremental financial contribution',
-      note: `With MTM integration minus the current program. These patient-level amounts exclude fixed cohort costs. ${perspective === 'clinic' ? 'Medication savings are shown separately and are not retained as clinic revenue.' : 'Net benefit includes retained medication savings when they are estimable.'}`,
+      note: `With MTM integration minus the current program. Receipts are modeled after qualification, collection and external-payer assumptions; they are not the full payment benchmark or actual collections. Setup is counted once for a qualifying new start, never for an existing participant. These patient-level amounts exclude fixed cohort costs. ${perspective === 'clinic' ? 'Medication savings are shown separately and are not retained as clinic revenue.' : 'Net benefit includes the assumed retained share of medication savings when estimable.'}`,
       fields: [
         ['Additional program cost', money(b.programCost - a.programCost)],
-        ['Additional external revenue', money(b.revenue - a.revenue)],
+        ['Additional recurring RPM receipts', money(b.monthlyRevenue - a.monthlyRevenue)],
+        ['Additional one-time setup receipts', money(b.setupRevenue - a.setupRevenue)],
+        ['Total additional external receipts', money(b.revenue - a.revenue)],
         ['Medication cost offset · before retained share', money(difference(b.drugSavings, a.drugSavings))],
         ['Operating contribution · before medication savings', money(b.operatingMargin - a.operatingMargin)],
         ['Net financial contribution', money(difference(b.netFinancialBenefit, a.netFinancialBenefit))],
@@ -136,8 +142,8 @@ function UsualCareContext({ patient }) {
   )
 }
 
-function IntegrationJourney({ patient, phase, perspective, clinicalMode }) {
-  const content = phaseContent(patient, phase, perspective, clinicalMode)
+function IntegrationJourney({ patient, phase, inputs }) {
+  const content = phaseContent(patient, phase, inputs)
   return (
     <article className="sim-room sim-room-pharmacy sim-integration-room">
       <header className="sim-room-heading">
@@ -170,6 +176,49 @@ function summarizeProcessed(patients) {
   }, { addedStarts: 0, addedMonths: 0, addedReductions: 0 })
 }
 
+function FinancialAssumptions({ inputs }) {
+  const payment = getRpmPaymentSchedule(inputs)
+  return (
+    <details className="sim-finance-assumptions">
+      <summary>Applied payment and staffing assumptions <span>{payment.mode === 'medicare2026' ? '2026 Medicare benchmark' : payment.mode === 'none' ? 'No reimbursement' : 'Custom reimbursement'} · {number(inputs.monitorPharmacistMinutes)} assumed clinical minutes/month</span></summary>
+      <div className="sim-finance-assumption-grid">
+        <section><h3>Benchmark before qualification</h3><strong>{money(payment.monthlyBenchmark)} <small>/ qualifying month</small></strong><p>{payment.mode === 'medicare2026' ? `${payment.deviceCodeLabel}: ${money(payment.deviceFee)}; ${payment.managementCode || 'no treatment-management code'}: ${money(payment.managementFee)}${payment.additionalUnits ? `, including ${number(payment.additionalUnits)} additional unit(s)` : ''}.` : 'The selected reimbursement scenario determines the monthly payment benchmark.'}</p><p>One-time setup benchmark: <b>{money(payment.setupFee)}</b> per qualifying new start. Existing RPM participants receive no new setup payment.</p></section>
+        <section><h3>Receipts remain conditional</h3><p>Applied assumptions: <b>{percent(inputs.qualificationShare)}</b> of active months and <b>{percent(inputs.setupQualificationShare)}</b> of new setups qualify. Collection factor: <b>{percent(inputs.collectionShare)}</b>; external-payer share: <b>{percent(inputs.externalPayerShare)}</b>.</p><p>Internal payments are excluded from external receipts. Fee benchmarks do not establish eligibility, coverage, or a successful claim.</p></section>
+        <section><h3>Workload is an assumption</h3><p><b>{number(inputs.monitorPharmacistMinutes)} pharmacist minutes</b> and <b>{number(inputs.monitorSupportMinutes)} nonclinical technical-support minutes</b> per active month, at loaded hourly costs of {money(inputs.pharmacistWage)} and {money(inputs.supportWage)}.</p><p>Only qualifying clinical time selects a treatment-management code. Technical support is costed separately and adds no clinical billing time.</p></section>
+      </div>
+      <p className="sim-finance-assumption-note">Applied technology costs: {money(inputs.deviceCost)} per new device, {money(inputs.monthlyTechnologyCost)} software + {money(inputs.monthlyConnectivityCost)} connectivity per active patient-month, and {money(inputs.monthlyPlatformBaseCost)} platform base fee per provider-month × {number(inputs.platformProviderCount)} provider(s). The common base fee is included once in each program; it is not an extra integration invoice. Prices are benchmarks; connectivity and local implementation costs remain assumptions.</p>
+      {payment.notes?.length > 0 && <ul className="sim-payment-notes">{payment.notes.map(note => <li key={note}>{note}</li>)}</ul>}
+      <p className="sim-finance-assumption-note">Medication effects are {inputs.clinicalMode === 'illustrative' ? 'illustrative scenario assumptions, not measured benefits' : inputs.clinicalMode === 'none' ? 'set to zero by assumption' : 'not estimated'}. {inputs.perspective === 'clinic' ? 'The clinic perspective excludes medication savings from its financial benefit.' : `The consolidated perspective assumes ${percent(inputs.retainedDrugSavingsShare)} of modeled medication savings is retained.`} <Link to="/calculator">Review or change the shared assumptions →</Link></p>
+      <details className="sim-finance-sources"><summary>Financial sources and limitations</summary><ul>{FINANCIAL_EVIDENCE.map(source => <li key={source.id}><a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a><p>{source.description}</p></li>)}</ul></details>
+    </details>
+  )
+}
+
+const costLabels = [
+  ['reviews', 'Added MTM reviews'], ['offers', 'Pharmacist RPM offers'], ['onboarding', 'New-start onboarding'],
+  ['pharmacistMonitoring', 'Pharmacist monitoring'], ['technicalSupport', 'Nonclinical technical support'],
+  ['physicianReferrals', 'Usual physician referrals'], ['devices', 'New devices'], ['software', 'Patient software'],
+  ['connectivity', 'Connectivity'], ['platformBase', 'Common platform base fee'], ['otherFixed', 'Other fixed program costs'], ['addedFixed', 'Added integration fixed costs'],
+]
+
+function FinancialResultsTable({ run }) {
+  const { baseline, integrated, delta } = run.actual
+  const receiptRows = [
+    ['qualifiedMonths', 'Reimbursement-qualified months', number],
+    ['qualifiedSetups', 'New setups qualifying once', number],
+    ['monthlyRevenue', 'Recurring external receipts', money],
+    ['setupRevenue', 'One-time setup external receipts', money],
+    ['revenue', 'Total external receipts', money],
+    ['programCost', 'Total program cost, including fixed costs', money],
+    ['operatingMargin', 'Operating margin before medication savings', money],
+  ]
+  return <div className="sim-results sim-receipt-results">
+    <h3>Modeled receipts and spending</h3><p>Receipts below already reflect qualification, collection and external-payer assumptions. They are not unadjusted Medicare fees or observed collections.</p>
+    <div className="sim-table-wrap"><table><caption className="sr-only">Full-cohort modeled receipts and spending for the budget year</caption><thead><tr><th scope="col">Budget-year measure</th><th scope="col">Current program</th><th scope="col">With MTM</th><th scope="col">Increment</th></tr></thead><tbody>{receiptRows.map(([key, label, format]) => <tr key={key}><th scope="row">{label}</th><td>{format(baseline[key])}</td><td>{format(integrated[key])}</td><td>{format(delta[key])}</td></tr>)}</tbody></table></div>
+    <details className="sim-cost-details"><summary>Where the program spends money</summary><div className="sim-table-wrap"><table><caption className="sr-only">Program cost components; positive increments represent added spending</caption><thead><tr><th scope="col">Cost component</th><th scope="col">Current program</th><th scope="col">With MTM</th><th scope="col">Added cost</th></tr></thead><tbody>{costLabels.map(([key, label]) => <tr key={key}><th scope="row">{label}</th><td>{money(baseline.costBreakdown[key])}</td><td>{money(integrated.costBreakdown[key])}</td><td>{money(integrated.costBreakdown[key] - baseline.costBreakdown[key])}</td></tr>)}</tbody></table></div><p className="sim-footnote">Patient-level contributions exclude fixed costs. These cohort totals include each program’s base and fixed costs once. Shared costs cancel in the increment; only additional resources change the integration result.</p></details>
+  </div>
+}
+
 function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
   const [playback, dispatch] = useReducer(playbackReducer, initialPlayback)
   const [speed, setSpeed] = useState('1')
@@ -181,7 +230,7 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
   const complete = processed === inputs.N
   const visibleSummary = useMemo(() => summarizeProcessed(run.patients.slice(0, processed)), [run, processed])
   const queueStart = Math.min(Math.max(0, selectedIndex - 3), Math.max(0, inputs.N - 8))
-  const selectedContent = phaseContent(patient, phase, inputs.perspective, inputs.clinicalMode)
+  const selectedContent = phaseContent(patient, phase, inputs)
 
   useEffect(() => {
     if (!playing) return undefined
@@ -215,7 +264,8 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
           <div><span className="sim-eyebrow">STUDY EXPLORER · PATIENT-LEVEL MICROSIMULATION</span><h1>Pharmacist integration <span>in action.</span></h1><p>Follow the added MTM work from recruitment and monitoring to medication reductions and its financial contribution.</p></div>
           <Link to="/calculator" className="sim-text-link">Shared assumptions & calculator ↗</Link>
         </header>
-        <div className="sim-study-note"><strong>Synthetic study model · no collected patient data.</strong> The current program continues. Each record compares current care with adding pharmacist involvement; the rooms illustrate one integrated workflow. Clinical and financial results depend on the shared assumptions.<span className="sim-applied-context">Applied perspective: {inputs.perspective === 'clinic' ? 'clinic' : 'consolidated integrated system'} · Deprescribing: {inputs.clinicalMode === 'none' ? 'zero clinical effects assumed' : inputs.clinicalMode === 'unestimated' ? 'not estimated' : 'illustrative assumptions'}</span></div>
+        <div className="sim-study-note"><strong>Synthetic study model · no collected patient data.</strong> The current program continues. Each record compares current care with adding pharmacist involvement; the rooms illustrate one integrated workflow. Clinical and financial results depend on the shared assumptions.<span className="sim-applied-context">Applied perspective: {inputs.perspective === 'clinic' ? 'clinic' : 'consolidated integrated system'} · Deprescribing: {inputs.clinicalMode === 'none' ? 'zero clinical effects assumed' : inputs.clinicalMode === 'unestimated' ? 'not estimated' : 'illustrative assumptions'}</span><span className="sim-applied-context">Assumed external-payer share: {percent(inputs.externalPayerShare)} · {inputs.perspective === 'clinic' ? 'Medication savings excluded from clinic benefit' : `Assumed medication-savings retention: ${percent(inputs.retainedDrugSavingsShare)}`}. These shares are not Kaiser measurements.</span></div>
+        <FinancialAssumptions inputs={inputs} />
 
         <section className="sim-toolbar" aria-label="Simulation playback">
           <div className="sim-control-buttons">
@@ -237,7 +287,7 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
             <div className="sim-step-bar sim-journey-steps"><span>{inspection !== null ? `INSPECTING ${patient.id}` : `PATIENT ${patient.id}`}</span><ol>{phaseLabels.map((label, index) => <li key={label} className={index === phase ? 'sim-active-step' : ''} aria-current={index === phase ? 'step' : undefined}><b>{index + 1}</b><span>{label}</span></li>)}</ol></div>
             {inspection !== null && <div className="sim-inspection-note">Completed patient · counts are unchanged. <button type="button" onClick={() => dispatch({ type: 'return' })}>Return to playback →</button></div>}
             <UsualCareContext patient={patient} />
-            <IntegrationJourney patient={patient} phase={phase} perspective={inputs.perspective} clinicalMode={inputs.clinicalMode} />
+            <IntegrationJourney patient={patient} phase={phase} inputs={inputs} />
             {inspection !== null && <section className="sim-inspection-summary" aria-label="Completed patient journey"><h3>Journey for {patient.id}</h3><dl><div><dt>Review</dt><dd>{reviewStatus(patient)}</dd></div><div><dt>RPM</dt><dd>{rpmStatus(patient)}</dd></div><div><dt>Monitoring</dt><dd>{number(patient.integrated.activeMonths)} active service months with integration</dd></div><div><dt>Medication reductions</dt><dd>{number(patient.baseline.clinical.actions)} current program → {number(patient.integrated.clinical.actions)} with integration</dd></div></dl></section>}
           </section>
 
@@ -262,6 +312,7 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
           {complete ? <>
             <div className="sim-financial-result"><span>Incremental annual net financial benefit per 1,000 eligible members</span><strong>{money(run.actual.delta.netBenefitPer1000)}</strong><p>{known(run.actual.delta.netFinancialBenefit) ? `Cohort total: ${money(run.actual.delta.netFinancialBenefit)} for ${number(inputs.N)} eligible members. Positive means additional modeled benefit; negative means additional net spending.` : 'Clinical inputs remain unspecified. Program costs and operating margin are still available in the calculator.'}</p></div>
             <dl className="sim-outcome-summary"><div><dt>Additional RPM starts</dt><dd>{number(run.actual.delta.newInitiations)}</dd></div><div><dt>Additional service months</dt><dd>{signed(run.actual.delta.activeMonths)}</dd></div><div><dt>Additional reductions maintained 12 months after reduction</dt><dd>{signed(run.actual.delta.clinical.sustainedAt12Months)}</dd></div><div><dt>Incremental operating margin · before medication savings</dt><dd>{money(run.actual.delta.operatingMargin)}</dd></div></dl>
+            <FinancialResultsTable run={run} />
           </> : <p className="sim-incomplete-result">Patient outcomes appear as the simulation progresses. The calculator provides the expected cohort results and the same applied assumptions at any time.</p>}
           <p className="sim-footnote">The annual financial result uses the modeled budget year. Twelve-month medication persistence can extend beyond that year. A synthetic realization is not an observed treatment effect, and changing the seed does not measure parameter uncertainty.</p>
         </section>
