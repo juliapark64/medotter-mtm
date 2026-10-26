@@ -19,7 +19,7 @@ const STUDY_QUESTIONS = [
   {
     step: '04',
     title: 'Estimate added financial return',
-    desc: 'Do retained collections and medication savings cover the added program costs under the selected assumptions?',
+    desc: 'Do additional RPM collections cover the added clinic costs? Medication reductions and drug-cost offsets are reported separately.',
   },
 ]
 
@@ -54,7 +54,7 @@ export default function Landing() {
               <span className="block"><span className="text-teal-300">Studied</span> Together.</span>
             </h1>
             <p className="text-lg md:text-xl text-blue-100 mb-10 leading-relaxed max-w-xl">
-              Explore how pharmacist recruitment and deprescribing could expand remote blood pressure monitoring and change the financial return of an integrated clinic.
+              Explore how pharmacist recruitment and deprescribing could expand remote blood pressure monitoring in a clinic serving Original Medicare patients.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link to="/integration-demo" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white text-brand-700 font-bold text-base hover:bg-blue-50 transition shadow-lg">
@@ -94,7 +94,7 @@ export default function Landing() {
           <div className="text-center mb-14">
             <h2 className="section-title">The Questions Behind the Study</h2>
             <p className="section-sub">
-              A planned study of recruitment, deprescribing, and financial feasibility within an integrated system.
+              A planned study of recruitment, deprescribing, and clinic financial feasibility under Original Medicare fee-for-service.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

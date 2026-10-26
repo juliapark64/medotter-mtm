@@ -1,8 +1,8 @@
 # MTM–RPM integration study: methods and evidence
 
-This is a hypothetical planning study of adding MTM recruitment and medication review to an existing RPM service. The calculator and synthetic patient simulation must use the same scenario assumptions and financial perspective. Neither is an observed study of Kaiser, a clinical decision tool, or evidence that integration causes savings. The AMCP abstract and Word endpoint plan are separate artifacts and are not modified by this implementation.
+This is a hypothetical planning study of adding MTM recruitment and medication review to an existing RPM service at a clinic serving **Original Medicare fee-for-service patients**. The calculator and synthetic patient simulation must use the same scenario assumptions and financial perspective. Neither is an observed study of Kaiser, a clinical decision tool, or evidence that integration causes savings. The AMCP abstract and Word endpoint plan are separate artifacts and are not modified by this implementation.
 
-The shared engine is [integrationStudy.js](../src/lib/integrationStudy.js), model `mtm-rpm-additive-integration`, version `3.1.0`, export schema `3`. Its input definitions are the authoritative defaults and validation limits. Calculator and simulation share recruitment, task-level team staffing, monthly service costs, code-linked reimbursement benchmarks, one-time setup collections and deprescribing accounting. This implementation supersedes the recruitment-only simulation for the integration question; it is not the old health-plan budget model with renamed outputs.
+The shared engine is [integrationStudy.js](../src/lib/integrationStudy.js), model `mtm-rpm-additive-integration`, version `4.0.0`, export schema `4`. Its input definitions are the authoritative defaults and validation limits. Calculator and simulation share recruitment, task-level team staffing, monthly service costs, code-linked reimbursement benchmarks, one-time setup collections and deprescribing accounting. This implementation supersedes the recruitment-only simulation for the integration question; it is not the old health-plan budget model with renamed outputs.
 
 ## Comparison and denominators
 
@@ -10,7 +10,7 @@ The comparator includes the existing RPM program, usual physician recruitment, a
 
 Define the RPM-eligible population once. Apply additional MTM recruitment only to the eligible population remaining after existing participation and usual recruitment, according to the model's stated sequence. Offer and review probabilities are conditional on their preceding stages. A completed review is not an offer, an offer is not consent, and initiation means at least one transmitted reading. Charge recruitment work even when it does not produce a start. Do not add alternative-pathway estimates together or count the same patient twice.
 
-Counts per 1,000 use the common RPM-eligible population. Plan PMPM, when reported, uses all covered plan members instead. These denominators are not interchangeable. A recruitment parity threshold is not a financial break-even threshold.
+Counts per 1,000 use the common RPM-eligible Original Medicare clinic population. This clinic analysis does not use a health-plan PMPM denominator. A recruitment parity threshold is not a financial break-even threshold.
 
 For population `N`, existing RPM share `e`, physician referral probability `r`, and physician initiation probability `qA`, expected existing participants are `N × e` and usual new starts are `N × (1 − e) × r × qA`. Completed integration reviews are `N × f × c`, including people already receiving RPM and people who never initiate RPM.
 
@@ -26,7 +26,7 @@ Keep active service months, months with readings, and unique patients distinct. 
 
 The default clinical mode is **illustrative**: it uses a usual-program medication-action probability of **10%**, an integrated probability of **30%** for patients receiving the completed MTM review, and **one medication reduction per patient with an action**. Those are investigator assumptions, not trial estimates. Patients without that review retain the usual-program action probability. Retain usual-program reductions in the comparator; only the between-arm difference is incremental. The explicit **none** mode sets both arms' clinical effects and drug savings to zero while retaining review and program costs. This is a conservative scenario, not evidence that the clinical effect is zero.
 
-The **unestimated** mode, or missing required clinical inputs, produces unavailable clinical outcomes, drug savings and total net financial benefit rather than replacing unknown effects with zero. An operating margin can still be calculated from the supplied service costs and collections. Unknown clinical inputs and an explicitly assumed zero effect are different scenarios.
+The **unestimated** mode, or missing required clinical inputs, produces unavailable clinical outcomes and drug savings rather than replacing unknown effects with zero. Clinic net financial benefit remains calculable from the supplied service costs and collections because medication savings are excluded from the clinic financial endpoint. Unknown clinical inputs and an explicitly assumed zero effect are different scenarios.
 
 The single-medication assumption makes patient and medication counts numerically equal in that scenario. It does not establish their equivalence in practice. If multiple drugs, dose reductions, substitutions, or restarts are introduced, track medicines and patients separately. For a genuine patient endpoint, count each patient once even if several medications change.
 
@@ -42,7 +42,7 @@ The references support specific quantities in specific populations. Transferred 
 | --- | --- | --- |
 | Physician referral 11.8% | Mean physician-level referral rate in the UCSD study, using October 2020–October 2022 records. [1] | Not an observed annual patient probability. Annual application is an explicit scenario choice. |
 | Initiation 53% | UCSD initial uptake defined as at least one transmission after referral. [2] | Applying this to MTM offers, a different population, or the recruitment-year horizon is a transfer assumption. No automatic age adjustment. |
-| Review completion 84% | Historical MA-PD CMR completion benchmark in the 2024 Star Ratings, within a defined MTM measure population. [3] | Not the MTM-eligible share of all RPM candidates or a current local completion estimate. |
+| Review completion 84% | Historical MA-PD CMR completion benchmark in the 2024 Star Ratings, within a defined MTM measure population. [3] | Not the MTM-eligible share of all RPM candidates or a current local completion estimate. Transferring an MA-PD benchmark to this Original Medicare cohort is an explicit applicability assumption. |
 | Monthly reading participation 49% | Mean monthly transmission probability over one year, conditional on initial uptake. [2] | Not annual retention or the share meeting all six consecutive two-month reading criteria. |
 | Low home BP approximately 23% | MINOR baseline report: 74/322 older Brazilian participants, with or without symptoms. [4] | Exploratory prevalence only; it does not establish that every patient needs deprescribing or has symptoms to improve. |
 | Uncontrolled BP 61.18% | The same report gives 61.18% and n=166 among N=322. [4] | Internally inconsistent; do not use as a fixed clinical input or silently repair the numerator. |
@@ -54,14 +54,17 @@ The references support specific quantities in specific populations. Transferred 
 
 MINOR used short-term home BP measurement in Brazilian primary care, not a year-long US RPM service. Its subgroup comparison does not isolate the effect of providing RPM because both arms received home monitoring. These sources do not establish a statistical interaction between MTM and RPM or the study's modeled financial benefits.
 
-## Financial perspectives
+## Clinic financial boundary
 
-Keep two ledgers rather than summing them:
+The model uses one financial perspective: a **clinic serving Original Medicare fee-for-service patients**. Its operating margin equals RPM collections received by the clinic minus program resource costs. All modeled collections count toward that margin after billing qualification and collection realization. There is no additional external-payer fraction or arbitrary 50% reduction. This is not consolidated insurer-plus-clinic accounting and does not estimate Medicare Advantage or commercial contracts.
 
-- **Clinic:** external collections retained by the clinic minus its program resource costs. Drug-cost savings paid for by an outside health plan are not clinic revenue. A published allowed-amount benchmark is not the same as collected receipts.
-- **Consolidated integrated system:** attributable drug-cost offsets retained by the system and any explicitly external revenue minus incremental resource costs. Payments between the owned health plan, clinic, and pharmacy cancel. Do not count an internal payment as both system revenue and a system saving.
+```text
+Clinic operating margin = monthly RPM collections + setup collections − program costs
+Added clinic financial surplus = integrated-program margin − current-program margin
+Surplus per 1,000 eligible patients = added clinic financial surplus × 1,000 / N
+```
 
-`drugSavings` is the raw modeled medication-cost offset. The separate `retainedDrugSavingsShare` specifies the share financially retained by the consolidated system, default **50%**. The clinic perspective retains **zero** drug savings regardless of this setting. An outside insurer's medication savings are not automatically system revenue. Set this share from the actual drug-cost liability or contract; do not automatically derive it as `1 − externalPayerShare`, because the revenue share need not represent the same patient population or cost responsibility. In the explicit no-benefit mode, the raw drug offset is zero, so the retained share does not change the result.
+The exported `perspective` is fixed to `clinic`. The earlier `externalPayerShare` and `retainedDrugSavingsShare` inputs have been removed. `netFinancialBenefit` equals `operatingMargin` in each arm; the difference is the added clinic financial surplus. `drugSavings` remains a separately reported modeled medication-cost offset. It is never automatically clinic revenue, even when deprescribing assumptions are enabled. Clinical outcomes and medication offsets can remain unknown without making the clinic margin unknown.
 
 ### Reimbursement modes and time
 
@@ -77,7 +80,7 @@ The default **Medicare 2026 benchmark** mode links the monthly allowed amount to
 
 The engine conservatively caps management add-ons at two while charging all entered pharmacist management minutes. It does not optimize billing above that cap. The device component uses one of **99445** (2–15 transmission days) or **99454** (16–30 days), both $52.11; they are alternatives, not additive codes. Likewise, 99470 and 99457 are alternatives. [12] A month with fewer than 10 management minutes can still produce the device/data allowance if its separate device requirements are satisfied; it does not produce a management fee.
 
-**Custom contract** mode uses investigator-entered monthly and setup allowances, with the same qualification and collections accounting. **No reimbursement** mode produces zero monthly and setup collections while retaining service costs. It does not remove drug-cost offsets when these are separately enabled.
+**Custom benchmark** mode uses investigator-entered monthly and setup allowed amounts for a local payment sensitivity, with the same Original Medicare clinic boundary and qualification/collections accounting. **No reimbursement** mode produces zero monthly and setup collections while retaining service costs. It does not remove drug-cost offsets when these are separately enabled.
 
 In exported inputs, `reimbursementMode` is `medicare2026`, `custom` or `none`. `monthlyRevenueBenchmark` and `customSetupRevenueBenchmark` are used only in custom mode; changing them does not override Medicare's time-linked benchmark. `setupQualificationShare` is distinct from `qualificationShare`. `monthlyTechnologyCost` is the per-patient vendor technology package, `monthlyConnectivityCost` is any additional per-patient connectivity charge, and an additional annual subscription is `12 × monthlyPlatformBaseCost × platformProviderCount`. Included package components must not be charged again.
 
@@ -89,17 +92,19 @@ The user explicitly selected the assumption that this supervised clinical time q
 
 ```text
 Monthly collections = qualifying active months × monthly allowed benchmark
-                      × collection share × external-payer share
+                      × collection share
 
 Setup collections = unique new initiations × setup-qualification share
-                    × one-time setup allowance × collection share × external-payer share
+                    × one-time setup allowance × collection share
 
 Total collections = monthly collections + setup collections
 ```
 
 The Medicare setup allowance is **$21.71** for 99453. [10] Setup qualification, default **70%**, is a separate episode-level assumption. Setup is counted once for each qualifying new episode, never for existing participants and never twice for overlapping referral channels. The calculator uses expected qualifying setups; microsimulation uses a separate seeded setup-qualification draw shared between the two arms. Monthly and setup qualification are separate assumptions, not interchangeable probabilities.
 
-The default **70%** qualifying-month share, **90%** all-in collection share and **50%** external-payer share are assumptions. The collection share represents realization of the total allowed amount, including payer/patient collections and adjustments, not an additional Medicare payment percentage. Do not automatically apply another 80% factor. A first transmission qualifies initiation but does not prove a billable service month or setup episode. All active months incur service costs, including unpaid months. Switching financial perspective does not automatically change the payer share.
+The default **70%** qualifying-month share, **70%** setup-qualification share and **90%** all-in collection share are unvalidated planning assumptions, not observed local rates or CMS reimbursement percentages. The collection share represents realization of the total allowed amount, including Medicare, patient/supplemental collections and adjustments. It is not an additional Medicare payment percentage; do not apply another 80% factor. Counting all clinic collections does not mean that every patient or active month qualifies for payment. A first transmission qualifies initiation but does not prove a billable service month or setup episode. All active months incur service costs, including unpaid months. These editable qualification and collection assumptions should be calibrated to local billing experience and tested in sensitivity analyses. Original Medicare generally assigns 20% of the Medicare-approved amount to the patient after the Part B deductible, so the all-in realization assumption includes collections from both Medicare and patient/supplemental sources; it is not a claim that Medicare itself pays 90% of the allowed amount. [20]
+
+At the default 20 qualifying clinical minutes, the expected recurring collection per active patient-month is `$103.88 × 0.70 × 0.90 = $65.4444`. A qualifying service month yields `$103.88 × 0.90 = $93.492` in modeled collections; the lower average across all active months includes unpaid months. Setup remains separate and once per qualifying new episode. These are conditional model calculations, not observed receipts.
 
 Qualification is a pooled monthly gate: the engine does not separately adjudicate transmission days, clinical time, communication, 30-day service periods versus calendar months, patient cost-sharing or claim denials. For a selected monthly bundle, it conservatively pays the device and management components together only in qualifying months. This simplification can omit device-only or management-only receipts. It must not be described as a claims-level reimbursement simulator.
 
@@ -135,17 +140,17 @@ Labor cost = pharmacist hours × loaded pharmacist wage
 Qualifying monthly clinical minutes = monitorPharmacistMinutes + qualifiedSupportMinutes
 ```
 
-The cashbook combines RPM and CCM and its time-band formula does not reconcile cleanly to all tier labels. Its implied 15.1-minute monthly average therefore is **not** adopted as an RPM-only workload. CCM revenue and time are not imported. The model continues to count the setup fee once per qualifying new episode, and does not repeat setup in each month's receipts. The cashbook's provider revenue-sharing fraction is also distinct from the integrated system's external-payer share and is not substituted for it.
+The cashbook combines RPM and CCM and its time-band formula does not reconcile cleanly to all tier labels. Its implied 15.1-minute monthly average therefore is **not** adopted as an RPM-only workload. CCM revenue and time are not imported. The model continues to count the setup fee once per qualifying new episode, and does not repeat setup in each month's receipts. The cashbook's provider revenue-sharing fraction is not imported; this model counts collections retained by the clinic without an additional payer-mix reduction.
 
 Task durations include associated documentation within the entered time. The model does not charge the entire existing CMR again when only incremental work is added. Variable costs use all active months, including unpaid ones. Fixed costs persist when there is no additional recruitment or clinical benefit. Discrete hiring steps, staffing capacity and extra billing administration costs are not separately estimated.
 
 An NYU Langone RPM study reports NP data review of 10 minutes/week plus 15 minutes/month communication. [17] Adapting this to pharmacist work gives `10 × 52 / 12 + 15 = 58.33` clinical minutes/month, a higher-workload sensitivity, not a validated pharmacist mean. It does not imply improved clinical outcomes. The study's average four-month episode and $330 total episode cost in 2024 USD are not current monthly prices for a cellular platform.
 
-Drug offsets use the assumed **$10 per medication-month**, net of modeled restarts and limited to the share borne by the selected perspective. Actual net drug costs, substitutions and dose changes require calibration; the single-drug illustration does not estimate those separately.
+Drug offsets use the assumed **$10 per medication-month**, net of modeled restarts. They are reported separately from clinic collections and never added to clinic financial surplus. Actual net drug costs, substitutions and dose changes require calibration; the single-drug illustration does not estimate those separately.
 
 CMS guidance also requires appropriate billing practitioners, supervision, consent, connected devices and no duplicate services/time. [9] This model does not adjudicate CPT claims, implement a statutory change or certify billability. Validate actual payer contracts and applicable requirements before treating the scenario as a local forecast.
 
-Use positive **incremental net benefit** to mean improvement relative to the existing program. A positive difference can represent a smaller loss while both programs still have negative total results; it is not necessarily an absolute surplus or profit. Read each arm's total alongside the difference. For a cost-oriented result, the sign is reversed: incremental net cost equals added costs minus added offsets. State the convention beside every result. Neither an additional RPM start nor a symptom improvement automatically creates a quality bonus or a medical-cost saving.
+Use positive **incremental net benefit** to mean improvement relative to the existing program. A positive difference can represent a smaller loss while both programs still have negative total results; it is not necessarily an absolute surplus or profit. Read each arm's total alongside the difference. For a cost-oriented result, the sign is reversed: incremental clinic net cost equals added program costs minus added RPM collections. State the convention beside every result. Neither an additional RPM start nor a symptom improvement automatically creates a quality bonus or a medical-cost saving.
 
 ## Simulation and uncertainty
 
@@ -153,15 +158,15 @@ The deterministic calculation is the primary expectation under the selected inpu
 
 Random variation between synthetic runs is different from uncertainty about inputs. Larger simulated populations reduce numerical noise but do not narrow uncertainty about the true effects of integration. Do not label seed variation a clinical confidence interval. A probabilistic sensitivity analysis requires separately specified input distributions and dependencies; a sensitivity range is not itself such a distribution.
 
-Required structural scenarios include no additional medication-action benefit, no added RPM recruitment, and no external reimbursement. Retain the relevant costs in each. Equal action rates remove the assumed improvement per comparable assessed patient, but extra recruitment can still change total actions; a scenario claiming **zero total added deprescribing benefit** must also neutralize that reach-related increment. Vary MTM eligibility, offers, uptake, recruitment month, service duration, staffing time, drug costs and collection assumptions. Report infeasible or undefined thresholds explicitly.
+Required structural scenarios include no additional medication-action benefit, no added RPM recruitment, and no RPM reimbursement. Retain the relevant costs in each. Equal action rates remove the assumed improvement per comparable assessed patient, but extra recruitment can still change total actions; a scenario claiming **zero total added deprescribing benefit** must also neutralize that reach-related increment. Vary MTM eligibility, offers, uptake, recruitment month, service duration, staffing time, drug costs and collection assumptions. Report infeasible or undefined thresholds explicitly.
 
-Validation should check cohort conservation, exclusion of existing participants from new starts, calendar-month exposure, unit consistency, comparator subtraction and financial-perspective boundaries. Deterministic and simulated summaries should agree in expectation under identical assumptions. Replay checks test computational reproducibility, not clinical validity or real-world savings.
+Validation should check cohort conservation, exclusion of existing participants from new starts, calendar-month exposure, unit consistency, comparator subtraction and the clinic financial boundary. Deterministic and simulated summaries should agree in expectation under identical assumptions. Replay checks test computational reproducibility, not clinical validity or real-world savings.
 
 ## Export and replay
 
 An integration JSON bundle includes complete inputs, the seed, model/evidence metadata, paired synthetic patient records, analytic expected summaries and simulated summaries. `qualifiedSetups` counts eligible new setup episodes; `monthlyRevenue` and `setupRevenue` sum to total `revenue`. Cost components appear in `costBreakdown`; common platform and other fixed costs and added integration fixed costs are cohort costs, not patient charges. The shared verifier reruns the model and rejects mismatched versions, schema, inputs, metadata or results. It does not treat a plausible edited summary as a valid run. A CSV is a table for inspection; use JSON for exact replay.
 
-Version **3.1.0/schema 3** rejects earlier model versions, including **3.0.0**. Earlier exports remain evidence of their original model, with the original source revision required for replay; they are not silently migrated or relabeled. Version 3.1 restores national wage benchmarks and identifies the scenario by task allocation rather than a cashbook wage case. The schema still includes non-pharmacist outreach, onboarding and qualifying clinical time. Setup remains included in expected and seeded results, so the earlier standalone setup supplement must not be added again.
+Version **4.0.0/schema 4** rejects earlier model versions, including **3.1.0**. Earlier exports remain evidence of their original model, with the original source revision required for replay; they are not silently migrated or relabeled. Version 4 fixes the financial boundary to an Original Medicare fee-for-service clinic, removes the external-payer and medication-savings-retention inputs, and keeps clinic surplus estimable when clinical outcomes are unknown. National wage benchmarks, the task-allocation scenario, non-pharmacist outreach/onboarding and qualifying clinical time remain in the model. Setup remains included in expected and seeded results, so the earlier standalone setup supplement must not be added again.
 
 From the repository root, verify an exported file without modifying it:
 
@@ -192,5 +197,7 @@ The command prints a compact JSON summary and exits successfully only after exac
 17. NYU Langone RPM economic evaluation, 2026. [Full article and workload/cost inputs](https://pmc.ncbi.nlm.nih.gov/articles/PMC13016703/). Transferring NP workload to pharmacist time is an explicit sensitivity assumption.
 18. User-supplied *RPM Cash Book.xlsx*, unpublished business-competition plan, reviewed October 25, 2026. `RPM etc!B30:B31` informs the 90% technician / 10% pharmacist task allocation; cashbook wages are excluded. `RPM etc!B26` and `B28` supply the separately retained $90 one-time and $12 monthly vendor charges. The user confirmed qualifying supervised clinical work and that the vendor charges include device/software/connectivity while in-house labor remains separate. These are planning assumptions, not peer-reviewed staffing estimates, claims evidence, or an independently verified vendor contract. The private source workbook is not uploaded.
 19. Noridian. [Incident To Services](https://med.noridianmedicare.com/web/jfb/topics/incident-to-services), role, scope and state qualification requirements. Apply RPM's specific general-supervision provisions from CMS [9]; the generic incident-to direct-supervision discussion does not replace the RPM rule. A job title alone does not establish that a particular task qualifies as clinical treatment management.
+
+20. Medicare.gov. [Doctor & other health care provider services](https://www.medicare.gov/coverage/doctor-other-health-care-provider-services). Original Medicare patient cost-sharing generally equals 20% of the Medicare-approved amount after the Part B deductible. This supports separating the allowed amount from all-in collections, not the model's assumed 90% realization rate.
 
 The prior [health-plan budget model](integrated-system-model.md) and [provider comparison](provider-feasibility-model.md) use different questions and assumptions. Their exports must retain their original model versions; do not relabel them as results from the integration study.

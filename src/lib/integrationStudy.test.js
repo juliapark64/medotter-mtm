@@ -27,17 +27,17 @@ test('failed referrals, offers and reviews cost work; one onboarding/device per 
   near(x.baseline.programCost, 100); near(x.integrated.programCost, 100)
 })
 test('late starts only incur remaining service months; qualification affects revenue not service costs', () => {
-  const e = expectedIntegrationStudy(p({ N: 10, existingRpmShare: 0, r: 0, f: 1, c: 1, o: 1, qB: 1, startMonth: 10, monthlyRetention: 1, ...zeroCosts, monthlyTechnologyCost: 2, qualificationShare: .5, reimbursementMode: 'custom', monthlyRevenueBenchmark: 20, setupQualificationShare: 0, collectionShare: .8, externalPayerShare: .5 }))
+  const e = expectedIntegrationStudy(p({ N: 10, existingRpmShare: 0, r: 0, f: 1, c: 1, o: 1, qB: 1, startMonth: 10, monthlyRetention: 1, ...zeroCosts, monthlyTechnologyCost: 2, qualificationShare: .5, reimbursementMode: 'custom', monthlyRevenueBenchmark: 20, setupQualificationShare: 0, collectionShare: .8 }))
   near(e.integrated.activeMonths, 30); near(e.integrated.qualifiedMonths, 15)
-  near(e.integrated.programCost, 60); near(e.integrated.revenue, 120); near(e.delta.operatingMargin, 60)
+  near(e.integrated.programCost, 60); near(e.integrated.revenue, 240); near(e.delta.operatingMargin, 180)
   const noRev = expectedIntegrationStudy(p({ N: 1, existingRpmShare: 1, ...zeroCosts, monthlyTechnologyCost: 2, monthlyRetention: 1, qualificationShare: 0 }))
   near(noRev.baseline.activeMonths, 12); near(noRev.baseline.programCost, 24); near(noRev.baseline.revenue, 0)
 })
 test('existing RPM receives added review benefit without new referrals, onboarding or devices', () => {
-  const e = expectedIntegrationStudy(p({ N: 10, existingRpmShare: 1, f: 1, c: 1, monthlyRetention: 1, clinicalMode: 'illustrative', lowBpShare: 1, actionBaseline: 0, actionIntegrated: 1, persistence12: 1, startMonth: 7, drugCostPerMonth: 10, retainedDrugSavingsShare: 1, ...zeroCosts }))
+  const e = expectedIntegrationStudy(p({ N: 10, existingRpmShare: 1, f: 1, c: 1, monthlyRetention: 1, clinicalMode: 'illustrative', lowBpShare: 1, actionBaseline: 0, actionIntegrated: 1, persistence12: 1, startMonth: 7, drugCostPerMonth: 10, ...zeroCosts }))
   near(e.integrated.newInitiations, 0); near(e.integrated.offers, 0); near(e.integrated.reviews, 10)
   near(e.delta.clinical.actions, 10); near(e.delta.clinical.medicationMonths, 60); near(e.delta.clinical.sustainedAt12Months, 10); near(e.delta.drugSavings, 600)
-  near(e.delta.netFinancialBenefit, 600)
+  near(e.delta.netFinancialBenefit, 0)
   const clinic = expectedIntegrationStudy({ ...p({ N: 10, existingRpmShare: 1, f: 1, c: 1, monthlyRetention: 1, clinicalMode: 'illustrative', lowBpShare: 1, actionBaseline: 0, actionIntegrated: 1, persistence12: 1, drugCostPerMonth: 10, ...zeroCosts }), perspective: 'clinic' })
   near(clinic.delta.netFinancialBenefit, 0); near(clinic.delta.drugSavings, 600)
 })
@@ -46,15 +46,14 @@ test('patient persistence uses 12 future months while budget counts only availab
   near(e.integrated.clinical.medicationMonths, 1.5)
   near(e.integrated.clinical.sustainedAt12Months, .5 ** 12)
 })
-test('retained medication savings are independent of RPM payer mix and excluded from clinic margin', () => {
-  const parameters = p({ N: 1, existingRpmShare: 1, f: 1, c: 1, monthlyRetention: 1, clinicalMode: 'illustrative', lowBpShare: 1, actionBaseline: 0, actionIntegrated: 1, persistence12: 1, startMonth: 12, drugCostPerMonth: 100, retainedDrugSavingsShare: .25, externalPayerShare: 1, qualificationShare: 0, ...zeroCosts })
+test('medication offsets remain separate from clinic surplus in expected and seeded accounting', () => {
+  const parameters = p({ N: 1, existingRpmShare: 1, f: 1, c: 1, monthlyRetention: 1, clinicalMode: 'illustrative', lowBpShare: 1, actionBaseline: 0, actionIntegrated: 1, persistence12: 1, startMonth: 12, drugCostPerMonth: 100, qualificationShare: 0, ...zeroCosts })
   for (const result of [expectedIntegrationStudy(parameters), simulateIntegrationStudy(parameters).actual]) {
     near(result.delta.drugSavings, 100)
-    near(result.delta.netFinancialBenefit, 25)
+    near(result.delta.netFinancialBenefit, 0)
+    near(result.delta.netFinancialBenefit, result.delta.operatingMargin)
   }
-  near(expectedIntegrationStudy({ ...parameters, externalPayerShare: 0 }).delta.netFinancialBenefit, 25)
-  near(expectedIntegrationStudy({ ...parameters, retainedDrugSavingsShare: 0 }).delta.netFinancialBenefit, 0)
-  near(expectedIntegrationStudy({ ...parameters, perspective: 'clinic' }).delta.netFinancialBenefit, 0)
+  near(expectedIntegrationStudy({ ...parameters, drugCostPerMonth: 10000 }).delta.netFinancialBenefit, 0)
 })
 test('a December starter has one budget medicine-month and separate full 12-month persistence', () => {
   const run = simulateIntegrationStudy(p({ N: 1, existingRpmShare: 0, r: 0, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, monthlyRetention: 1, clinicalMode: 'illustrative', lowBpShare: 1, actionBaseline: 0, actionIntegrated: 1, persistence12: 1, drugCostPerMonth: 10 }))
@@ -78,7 +77,7 @@ test('existing patients must remain active at the planned assessment month', () 
 })
 test('missing clinical effects are null, explicit none remains zero and retains review costs', () => {
   const missing = expectedIntegrationStudy(p({ clinicalMode: 'illustrative', persistence12: null }))
-  assert.equal(missing.delta.netFinancialBenefit, null); assert.equal(missing.integrated.clinical.actions, null)
+  near(missing.delta.netFinancialBenefit, missing.delta.operatingMargin); assert.equal(missing.integrated.clinical.actions, null)
   assert.ok(Number.isFinite(missing.delta.operatingMargin))
   const none = expectedIntegrationStudy(p({ clinicalMode: 'none', persistence12: null }))
   assert.equal(none.delta.drugSavings, 0); assert.ok(none.integrated.reviews > 0); assert.ok(none.integrated.programCost > 0)
@@ -96,7 +95,7 @@ test('seed replay and recruitment conservation hold; probability boundaries yiel
   for (const k of ['newInitiations', 'activeMonths', 'qualifiedMonths', 'programCost']) near(exact.actual.integrated[k], exact.expected.integrated[k])
 })
 test('repeated seeded cohorts approach analytic recruitment, service and clinical expectations', () => {
-  const parameters = p({ N: 250, clinicalMode: 'illustrative', recontactUptake: .25, externalPayerShare: .6 })
+  const parameters = p({ N: 250, clinicalMode: 'illustrative', recontactUptake: .25 })
   const expected = expectedIntegrationStudy(parameters)
   const paths = [['integrated', 'newInitiations'], ['integrated', 'activeMonths'], ['integrated', 'revenue'], ['delta', 'programCost'], ['delta', 'netFinancialBenefit']]
   const values = paths.map(() => [])
@@ -111,13 +110,13 @@ test('repeated seeded cohorts approach analytic recruitment, service and clinica
   })
 })
 test('invalid, missing and unknown inputs are rejected, including invalid clinical values', () => {
-  for (const invalid of [null, {}, p({ N: 0 }), p({ N: 10001 }), p({ r: NaN }), p({ o: 1.1 }), p({ startMonth: 13 }), p({ seed: -1 }), p({ perspective: 'other' }), p({ clinicalMode: 'other' }), p({ persistence12: '0.5' }), p({ typo: 2 })]) { assert.ok(Object.keys(validateIntegrationInputs(invalid)).length); assert.throws(() => simulateIntegrationStudy(invalid)) }
+  for (const invalid of [null, {}, p({ N: 0 }), p({ N: 10001 }), p({ r: NaN }), p({ o: 1.1 }), p({ startMonth: 13 }), p({ seed: -1 }), p({ perspective: 'other' }), p({ perspective: 'consolidated' }), p({ externalPayerShare: .5 }), p({ retainedDrugSavingsShare: .5 }), p({ clinicalMode: 'other' }), p({ persistence12: '0.5' }), p({ typo: 2 })]) { assert.ok(Object.keys(validateIntegrationInputs(invalid)).length); assert.throws(() => simulateIntegrationStudy(invalid)) }
 })
-test('financial threshold reports already covered, attainable, missing, and unattainable scenarios', () => {
+test('financial threshold reports covered, attainable and unattainable cases even without clinical estimates', () => {
   assert.equal(findOfferThreshold(p({ ...zeroCosts })).rate, 0)
-  assert.equal(findOfferThreshold(p({ ...zeroCosts, addedFixedCost: 1, externalPayerShare: 0, clinicalMode: 'none' })).status, 'unattainable')
-  assert.equal(findOfferThreshold(p({ clinicalMode: 'unestimated' })).status, 'unestimated')
-  const base = p({ ...zeroCosts, N: 10, existingRpmShare: 0, r: 0, f: 1, c: 1, qB: 1, monthlyRetention: 1, qualificationShare: 1, reimbursementMode: 'custom', monthlyRevenueBenchmark: 10, setupQualificationShare: 0, collectionShare: 1, externalPayerShare: 1, addedFixedCost: 300, clinicalMode: 'none' })
+  assert.equal(findOfferThreshold(p({ ...zeroCosts, addedFixedCost: 1, reimbursementMode: 'none', clinicalMode: 'none' })).status, 'unattainable')
+  assert.deepEqual(findOfferThreshold(p({ clinicalMode: 'unestimated' })), findOfferThreshold())
+  const base = p({ ...zeroCosts, N: 10, existingRpmShare: 0, r: 0, f: 1, c: 1, qB: 1, monthlyRetention: 1, qualificationShare: 1, reimbursementMode: 'custom', monthlyRevenueBenchmark: 10, setupQualificationShare: 0, collectionShare: 1, addedFixedCost: 300, clinicalMode: 'none' })
   near(findOfferThreshold(base).rate, .5, 1e-6)
 })
 test('exports include exact assumptions and reject altered results, patients, inputs, or metadata', () => {
@@ -125,8 +124,8 @@ test('exports include exact assumptions and reject altered results, patients, in
   assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
   assert.equal(bundle.metadata.priceYear, 2026)
   assert.equal(bundle.metadata.currency, 'USD')
-  assert.equal(bundle.modelVersion, '3.1.0')
-  assert.equal(bundle.schemaVersion, 3)
+  assert.equal(bundle.modelVersion, '4.0.0')
+  assert.equal(bundle.schemaVersion, 4)
   assert.match(integrationExportCsv(bundle), /expected/)
   for (const mutate of [b => { b.inputs.seed++ }, b => { b.expected.delta.programCost++ }, b => { b.patients[0].id = 'other' }, b => { b.metadata.assumptions = [] }, b => { b.extra = 1 }]) { const b = structuredClone(bundle); mutate(b); assert.throws(() => verifyIntegrationExport(b)) }
   assert.equal(getIntegrationScenarios().find(x => x.id === 'conservative').inputs.clinicalMode, 'none')
@@ -150,11 +149,11 @@ test('nonclinical support, onboarding and medication review time never earn clin
   assert.equal(high.managementCode, null)
 })
 test('one setup per unique new start despite duplicate offers; existing patients have none', () => {
-  const parameters = p({ N: 1, existingRpmShare: 0, r: 1, qA: 1, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, monthlyRetention: 1, setupQualificationShare: 1, qualificationShare: 1, reimbursementMode: 'custom', monthlyRevenueBenchmark: 20, customSetupRevenueBenchmark: 5, collectionShare: .8, externalPayerShare: .5 })
+  const parameters = p({ N: 1, existingRpmShare: 0, r: 1, qA: 1, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, monthlyRetention: 1, setupQualificationShare: 1, qualificationShare: 1, reimbursementMode: 'custom', monthlyRevenueBenchmark: 20, customSetupRevenueBenchmark: 5, collectionShare: .8 })
   for (const result of [expectedIntegrationStudy(parameters), simulateIntegrationStudy(parameters).actual]) {
     near(result.integrated.duplicateOffers, 1)
     for (const arm of [result.baseline, result.integrated]) {
-      near(arm.newInitiations, 1); near(arm.qualifiedSetups, 1); near(arm.monthlyRevenue, 8); near(arm.setupRevenue, 2); near(arm.revenue, 10)
+      near(arm.newInitiations, 1); near(arm.qualifiedSetups, 1); near(arm.monthlyRevenue, 16); near(arm.setupRevenue, 4); near(arm.revenue, 20)
     }
     near(result.delta.setupRevenue, 0)
   }
@@ -164,12 +163,12 @@ test('one setup per unique new start despite duplicate offers; existing patients
   for (const result of [failed.expected, failed.actual]) { near(result.integrated.qualifiedSetups, 0); near(result.integrated.setupRevenue, 0) }
 })
 test('setup and recurring qualification are independent and all revenue exclusions retain costs', () => {
-  const parameters = p({ N: 2, existingRpmShare: 0, r: 0, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, qualificationShare: 0, setupQualificationShare: 1, collectionShare: 1, externalPayerShare: 1 })
+  const parameters = p({ N: 2, existingRpmShare: 0, r: 0, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, qualificationShare: 0, setupQualificationShare: 1, collectionShare: 1 })
   const setupOnly = expectedIntegrationStudy(parameters)
   near(setupOnly.integrated.monthlyRevenue, 0); near(setupOnly.integrated.setupRevenue, 43.42)
   const monthlyOnly = expectedIntegrationStudy({ ...parameters, qualificationShare: 1, setupQualificationShare: 0 })
   near(monthlyOnly.integrated.setupRevenue, 0); near(monthlyOnly.integrated.monthlyRevenue, 207.76)
-  for (const exclusion of [{ reimbursementMode: 'none' }, { externalPayerShare: 0 }, { collectionShare: 0 }]) {
+  for (const exclusion of [{ reimbursementMode: 'none' }, { collectionShare: 0 }]) {
     const result = expectedIntegrationStudy({ ...parameters, ...exclusion })
     near(result.integrated.revenue, 0); near(result.integrated.setupRevenue, 0); near(result.integrated.monthlyRevenue, 0)
     near(result.integrated.programCost, setupOnly.integrated.programCost)
@@ -200,21 +199,20 @@ test('version 1 pathway and clinical draws stay identical when setup qualificati
   assert.deepEqual(extract(run), extract(simulateIntegrationStudy(p({ setupQualificationShare: 1 }))))
   for (const patient of run.patients) if (patient.baseline.newInitiation) assert.equal(patient.baseline.qualifiedSetups, patient.integrated.qualifiedSetups)
 })
-test('prior pharmacist-heavy preset exactly reproduces version 2 accounting and wage benchmarks', () => {
-  const prior = getIntegrationScenarios().find(s => s.id === 'evidence-20-mixed').inputs
+test('pharmacist-heavy preset retains workload costs and uses Original Medicare clinic collections', () => {
+  const prior = getIntegrationScenarios().find(s => s.id === 'evidence-20').inputs
   near(prior.pharmacistWage, 67.75 * 49.93 / 35.13); near(prior.supportWage, 22.41 * 49.93 / 35.13)
   assert.equal(prior.offerSupportMinutes, 0); assert.equal(prior.onboardingSupportMinutes, 0); assert.equal(prior.qualifiedSupportMinutes, 0)
   const expected = expectedIntegrationStudy(prior)
-  near(expected.delta.monthlyRevenue, 17418.25949878102); near(expected.delta.setupRevenue, 637.7606681355)
-  near(expected.delta.programCost, 52124.72780670952); near(expected.delta.netFinancialBenefit, -33833.78864614892)
-  near(expectedIntegrationStudy({ ...prior, externalPayerShare: 1 }).delta.netFinancialBenefit, -15777.768479232469)
-  near(simulateIntegrationStudy(prior).actual.delta.netFinancialBenefit, -31787.638714773286)
-  const ten = getIntegrationScenarios().find(s => s.id === 'evidence-10-mixed')
+  near(expected.delta.monthlyRevenue, 34836.51899756204); near(expected.delta.setupRevenue, 1275.521336271)
+  near(expected.delta.programCost, 52124.72780670952); near(expected.delta.netFinancialBenefit, -16012.687472876414)
+  near(simulateIntegrationStudy(prior).actual.delta.netFinancialBenefit, -15767.15221467885)
+  const ten = getIntegrationScenarios().find(s => s.id === 'evidence-10')
   near(getRpmPaymentSchedule(ten.inputs).monthlyBenchmark, 78.16)
   const nyu = getIntegrationScenarios().find(s => s.id === 'nyu-workload')
   near(nyu.inputs.monitorPharmacistMinutes, 58 + 1 / 3); assert.equal(getRpmPaymentSchedule(nyu.inputs).additionalUnits, 1)
 })
-test('version 3.1 exports retain published wages and structural provenance and reject old or altered accounting', () => {
+test('version 4 exports retain provenance, clinic boundary and reject old or altered accounting', () => {
   const bundle = createIntegrationExport(simulateIntegrationStudy(p({ N: 20 })))
   assert.ok(bundle.metadata.financialEvidence.every(source => (source.url || source.reference) && source.accessedAt === '2026-10-25'))
   const allocation = bundle.metadata.financialEvidence.find(source => source.id === 'rpm-task-allocation')
@@ -232,6 +230,7 @@ test('version 3.1 exports retain published wages and structural provenance and r
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 1, modelVersion: '1.0.0' }), /Version 1.*cannot be replayed/)
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 2, modelVersion: '2.0.0' }), /Version 2.*cannot be replayed/)
   assert.throws(() => verifyIntegrationExport({ ...bundle, modelVersion: '3.0.0' }), /Version 3\.0\.0.*cannot be replayed/)
+  assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 3, modelVersion: '3.1.0' }), /Version 3\.1\.0.*cannot be replayed.*financial boundary/)
   for (const mutate of [b => { b.actual.integrated.setupRevenue++ }, b => { b.expected.integrated.costBreakdown.platformBase++ }, b => { b.metadata.medicare2026Fees.setup99453++ }]) {
     const changed = structuredClone(bundle); mutate(changed); assert.throws(() => verifyIntegrationExport(changed), /exact replay/)
   }
@@ -247,7 +246,7 @@ test('team defaults reallocate the same total workflow and retain pharmacist med
   near(defaults.offerSupportMinutes / defaults.offerMinutes, 9)
   near(defaults.onboardingSupportMinutes / defaults.onboardingMinutes, 9)
   near(defaults.monitorSupportMinutes - defaults.qualifiedSupportMinutes, 10)
-  const prior = getIntegrationScenarios().find(s => s.id === 'evidence-20-mixed').inputs
+  const prior = getIntegrationScenarios().find(s => s.id === 'evidence-20').inputs
   assert.equal(defaults.reviewMinutes, prior.reviewMinutes)
   const current = expectedIntegrationStudy()
   assert.ok(current.integrated.supportHours / current.integrated.pharmacistHours < 9, 'Pharmacist-only medication review makes the whole-program ratio different from the RPM task ratio.')
@@ -306,7 +305,7 @@ test('delegated outreach and onboarding costs occur once and reconcile with tota
 
 test('task allocation changes finances but preserves paired patient draws and clinical outcomes', () => {
   const team = simulateIntegrationStudy()
-  const prior = simulateIntegrationStudy(getIntegrationScenarios().find(s => s.id === 'evidence-20-mixed').inputs)
+  const prior = simulateIntegrationStudy(getIntegrationScenarios().find(s => s.id === 'evidence-20').inputs)
   const paths = run => run.patients.map(patient => [patient.id, patient.existingRpm, patient.physician, patient.pharmacist, patient.additionalInitiation, ...['baseline', 'integrated'].map(arm => [patient[arm].activeMonths, patient[arm].qualifiedMonths, patient[arm].qualifiedSetups, patient[arm].clinical])])
   assert.deepEqual(paths(team), paths(prior))
   assert.equal(team.actual.delta.newInitiations, 85)
@@ -330,4 +329,54 @@ test('confirmed vendor package replaces component charges without duplicating de
   near(component.monthlyConnectivityCost, 5); near(component.monthlyPlatformBaseCost, 299)
   near(component.pharmacistWage, defaults.pharmacistWage); near(component.supportWage, defaults.supportWage)
   assert.equal(component.qualifiedSupportMinutes, 17)
+})
+
+
+test('Original Medicare clinic defaults apply qualification and all-in collections without a payer reduction', () => {
+  assert.equal(defaults.perspective, 'clinic')
+  assert.equal('externalPayerShare' in defaults, false)
+  assert.equal('retainedDrugSavingsShare' in defaults, false)
+  near(defaults.qualificationShare, .7); near(defaults.setupQualificationShare, .7); near(defaults.collectionShare, .9)
+  const run = simulateIntegrationStudy()
+  const schedule = getRpmPaymentSchedule()
+  near(schedule.monthlyBenchmark, 103.88)
+  near(schedule.monthlyBenchmark * defaults.qualificationShare * defaults.collectionShare, 65.4444)
+  near(schedule.setupFee * defaults.setupQualificationShare * defaults.collectionShare, 13.6773)
+  for (const basis of [run.expected, run.actual]) for (const arm of [basis.baseline, basis.integrated, basis.delta]) {
+    near(arm.monthlyRevenue, arm.qualifiedMonths * 103.88 * .9)
+    near(arm.setupRevenue, arm.qualifiedSetups * 21.71 * .9)
+    near(arm.netFinancialBenefit, arm.revenue - arm.programCost)
+  }
+  near(run.expected.delta.revenue, 36112.04033383303)
+  near(run.expected.delta.programCost, 34505.64023729472)
+  near(run.expected.delta.netFinancialBenefit, 1606.4000965382656)
+  near(run.actual.delta.netFinancialBenefit, 171.6763556314654)
+  for (const scenario of getIntegrationScenarios()) {
+    assert.equal(scenario.inputs.perspective, 'clinic')
+    assert.equal('externalPayerShare' in scenario.inputs, false)
+    assert.equal('retainedDrugSavingsShare' in scenario.inputs, false)
+    assert.doesNotMatch(scenario.name, /external receipts|external reimbursement/i)
+    assert.deepEqual(validateIntegrationInputs(scenario.inputs), {})
+  }
+  assert.equal(getIntegrationScenarios().filter(s => s.inputs.reimbursementMode === 'none').length, 1)
+})
+
+test('unknown clinical outcomes never suppress clinic surplus in patient histories or summaries', () => {
+  const reference = simulateIntegrationStudy()
+  for (const overrides of [{ clinicalMode: 'unestimated' }, { persistence12: null }]) {
+    const run = simulateIntegrationStudy(p(overrides))
+    for (const key of ['expected', 'actual']) for (const arm of ['baseline', 'integrated', 'delta']) {
+      assert.equal(run[key][arm].drugSavings, null)
+      assert.equal(run[key][arm].clinical.actions, null)
+      near(run[key][arm].netFinancialBenefit, reference[key][arm].netFinancialBenefit)
+      near(run[key][arm].operatingMargin, reference[key][arm].operatingMargin)
+    }
+    run.patients.forEach((patient, i) => {
+      for (const arm of ['baseline', 'integrated']) {
+        assert.equal(patient[arm].drugSavings, null)
+        near(patient[arm].netFinancialBenefit, reference.patients[i][arm].netFinancialBenefit)
+      }
+    })
+    assert.deepEqual(verifyIntegrationExport(createIntegrationExport(run)).inputs, run.inputs)
+  }
 })
