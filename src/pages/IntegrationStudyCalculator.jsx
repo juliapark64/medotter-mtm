@@ -100,7 +100,7 @@ function TeamStaffingSummary({ inputs, draft = false }) {
     </div>
     <p><b>{number(inputs.monitorPharmacistMinutes + inputs.qualifiedSupportMinutes)} qualifying clinical minutes</b> include {number(inputs.qualifiedSupportMinutes)} of the {number(inputs.monitorSupportMinutes)} staff minutes. Qualifying staff time is a subset, not additional labor. The other {number(inputs.monitorSupportMinutes - inputs.qualifiedSupportMinutes)} minutes cover nonclinical work.</p>
     <p>Each offer uses {number(inputs.offerMinutes)} pharmacist + {number(inputs.offerSupportMinutes)} staff minutes. Each unique new start uses {number(inputs.onboardingMinutes)} pharmacist + {number(inputs.onboardingSupportMinutes)} staff onboarding minutes. Added medication review and deprescribing follow-up remain {number(inputs.reviewMinutes)} pharmacist minutes per completed review.</p>
-    <p>The default adapts the cashbook’s 10% pharmacist / 90% technician service mix while retaining the prior 30-minute monthly workload. Qualifying supervised treatment-management time is assumed for this scenario; a technician credential or CDTA alone does not establish eligibility. The evidence tab includes a case excluding staff time from reimbursement.</p>
+    <p>The default scenario is “90% technician / 10% pharmacist RPM task allocation”: a 9:1 technician-to-pharmacist time ratio for monthly RPM service, offers and onboarding. It is inspired by the cashbook’s team structure, not its wages. The separate pharmacist medication review means the ratio does not describe all program hours or staff headcount. The values above show the actual applied workload when inputs are edited. Qualifying supervised clinical time remains an assumption; the evidence tab includes a case excluding staff time from reimbursement.</p>
   </div>
 }
 
@@ -209,7 +209,7 @@ export default function IntegrationStudyCalculator() {
           </section>
           <section className="study-card">
             <h2>Staff time and compensation</h2>
-            <p className="study-copy">The default team uses the cashbook’s planned base wages of $55/hour for pharmacists and $24/hour for advanced technicians, with the BLS healthcare compensation ratio applied once for benefits. These are business-plan assumptions, not measured study costs. The pharmacist-heavy sensitivity retains the prior national BLS wage benchmarks.</p>
+            <p className="study-copy">Default wages use published BLS May 2025 national means: $67.75/hour for pharmacists and $22.41/hour for pharmacy technicians. Applying the June 2026 healthcare compensation ratio once gives loaded costs of approximately $96.29 and $31.85/hour. The technician rate is a general occupational benchmark, not an observed advanced-technician wage. The cashbook informs task allocation only; its wages are not used.</p>
             <TeamStaffingSummary inputs={draft} draft={dirty} />
             {fields(['pharmacistWage', 'supportWage', 'monitorPharmacistMinutes', 'monitorSupportMinutes', 'qualifiedSupportMinutes', 'offerMinutes', 'offerSupportMinutes', 'reviewMinutes', 'onboardingMinutes', 'onboardingSupportMinutes', 'physicianReferralCost'])}
             <p className="study-copy">The same team allocation applies to existing and additional RPM participants. Staff hours include recurring service, recruitment assistance and onboarding, with no double counting of the clinical subset. Valued staff time measures resources used; it does not imply that salaried payroll immediately falls when tasks move between roles.</p>

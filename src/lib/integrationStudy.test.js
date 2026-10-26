@@ -125,7 +125,7 @@ test('exports include exact assumptions and reject altered results, patients, in
   assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
   assert.equal(bundle.metadata.priceYear, 2026)
   assert.equal(bundle.metadata.currency, 'USD')
-  assert.equal(bundle.modelVersion, '3.0.0')
+  assert.equal(bundle.modelVersion, '3.1.0')
   assert.equal(bundle.schemaVersion, 3)
   assert.match(integrationExportCsv(bundle), /expected/)
   for (const mutate of [b => { b.inputs.seed++ }, b => { b.expected.delta.programCost++ }, b => { b.patients[0].id = 'other' }, b => { b.metadata.assumptions = [] }, b => { b.extra = 1 }]) { const b = structuredClone(bundle); mutate(b); assert.throws(() => verifyIntegrationExport(b)) }
@@ -214,17 +214,24 @@ test('prior pharmacist-heavy preset exactly reproduces version 2 accounting and 
   const nyu = getIntegrationScenarios().find(s => s.id === 'nyu-workload')
   near(nyu.inputs.monitorPharmacistMinutes, 58 + 1 / 3); assert.equal(getRpmPaymentSchedule(nyu.inputs).additionalUnits, 1)
 })
-test('version 3 exports retain fee and business-plan provenance and reject old or altered accounting', () => {
+test('version 3.1 exports retain published wages and structural provenance and reject old or altered accounting', () => {
   const bundle = createIntegrationExport(simulateIntegrationStudy(p({ N: 20 })))
   assert.ok(bundle.metadata.financialEvidence.every(source => (source.url || source.reference) && source.accessedAt === '2026-10-25'))
-  const cashbook = bundle.metadata.financialEvidence.find(source => source.id === 'cashbook-staffing')
-  assert.equal(cashbook.url, null); assert.match(cashbook.reference, /RPM etc!B30:B31/)
-  assert.match(bundle.metadata.evidence.pharmacistWage.sourceNotes, /F70/)
+  const allocation = bundle.metadata.financialEvidence.find(source => source.id === 'rpm-task-allocation')
+  assert.equal(allocation.url, null); assert.match(allocation.reference, /RPM etc!B30:B31/)
+  assert.match(allocation.description, /not staff headcount or all program work/)
+  for (const wage of ['pharmacistWage', 'supportWage']) {
+    assert.equal(bundle.metadata.evidence[wage].sourceNotes, null)
+    assert.ok(bundle.metadata.evidence[wage].sources.includes('https://www.bls.gov/news.release/ocwage.t01.htm'))
+    assert.ok(bundle.metadata.evidence[wage].sources.includes('https://www.bls.gov/news.release/ecec.t04.htm'))
+  }
+  assert.doesNotMatch(JSON.stringify(bundle.metadata), /Pro exp!|\$55|\$24 base/)
   near(bundle.metadata.medicare2026Fees.additional99458, 41.42)
   assert.match(integrationExportCsv(bundle), /cost_breakdown_json/)
   assert.match(integrationExportCsv(bundle), /qualifiedSetups/)
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 1, modelVersion: '1.0.0' }), /Version 1.*cannot be replayed/)
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 2, modelVersion: '2.0.0' }), /Version 2.*cannot be replayed/)
+  assert.throws(() => verifyIntegrationExport({ ...bundle, modelVersion: '3.0.0' }), /Version 3\.0\.0.*cannot be replayed/)
   for (const mutate of [b => { b.actual.integrated.setupRevenue++ }, b => { b.expected.integrated.costBreakdown.platformBase++ }, b => { b.metadata.medicare2026Fees.setup99453++ }]) {
     const changed = structuredClone(bundle); mutate(changed); assert.throws(() => verifyIntegrationExport(changed), /exact replay/)
   }
@@ -232,15 +239,21 @@ test('version 3 exports retain fee and business-plan provenance and reject old o
 })
 
 test('team defaults reallocate the same total workflow and retain pharmacist medication review', () => {
-  near(defaults.pharmacistWage, 55 * 49.93 / 35.13); near(defaults.supportWage, 24 * 49.93 / 35.13)
+  near(defaults.pharmacistWage, 67.75 * 49.93 / 35.13); near(defaults.supportWage, 22.41 * 49.93 / 35.13)
   near(defaults.monitorPharmacistMinutes + defaults.monitorSupportMinutes, 30)
   near(defaults.offerMinutes + defaults.offerSupportMinutes, 5)
   near(defaults.onboardingMinutes + defaults.onboardingSupportMinutes, 20)
   near(defaults.monitorPharmacistMinutes / 30, .1); near(defaults.monitorSupportMinutes / 30, .9)
+  near(defaults.offerSupportMinutes / defaults.offerMinutes, 9)
+  near(defaults.onboardingSupportMinutes / defaults.onboardingMinutes, 9)
   near(defaults.monitorSupportMinutes - defaults.qualifiedSupportMinutes, 10)
   const prior = getIntegrationScenarios().find(s => s.id === 'evidence-20-mixed').inputs
   assert.equal(defaults.reviewMinutes, prior.reviewMinutes)
   const current = expectedIntegrationStudy()
+  assert.ok(current.integrated.supportHours / current.integrated.pharmacistHours < 9, 'Pharmacist-only medication review makes the whole-program ratio different from the RPM task ratio.')
+  const teamPreset = getIntegrationScenarios().find(s => s.id === 'team-90-10')
+  assert.equal(teamPreset.name, '90% technician / 10% pharmacist RPM task allocation')
+  assert.deepEqual(teamPreset.inputs, defaults)
   const former = expectedIntegrationStudy(prior)
   near(current.delta.pharmacistHours + current.delta.supportHours, former.delta.pharmacistHours + former.delta.supportHours)
   near(current.delta.reviews, former.delta.reviews); near(current.delta.newInitiations, former.delta.newInitiations)
