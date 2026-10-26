@@ -14,7 +14,7 @@ const STUDY_QUESTIONS = [
   {
     step: '03',
     title: 'Estimate staffing needs',
-    desc: 'What pharmacist and support-staff time would outreach, onboarding, monitoring, and follow-up require?',
+    desc: 'What physician, nurse, assistant, pharmacist, and technician time would the two care pathways require?',
   },
   {
     step: '04',
@@ -25,14 +25,14 @@ const STUDY_QUESTIONS = [
 
 const PATHWAYS = [
   {
-    title: 'Current RPM program',
-    description: 'Existing RPM participants and usual physician referrals establish the starting program.',
-    steps: ['Existing participants continue', 'Usual physician referrals', 'Unique new RPM starts', 'Current program costs and outcomes'],
+    title: 'Physician-led RPM baseline',
+    description: 'Physicians manage RPM with nurse and medical-assistant support. This baseline has no pharmacist involvement.',
+    steps: ['Existing participants and physician referrals', 'Nurse and assistant onboarding', 'Physician clinical review and nurse follow-up', 'Usual-care outcomes and clinic costs'],
   },
   {
     title: 'With pharmacist integration',
-    description: 'The same program adds pharmacist recruitment and appropriate medication reduction.',
-    steps: ['Usual referrals continue', 'MTM review and RPM offers', 'Additional starts and medication assessment', 'Added financial surplus or deficit'],
+    description: 'The same clinic care team continues, with added pharmacist recruitment, medication review, and deprescribing support.',
+    steps: ['Physician-led RPM continues', 'Added MTM review and RPM offers', 'Unique additional starts and deprescribing', 'Added financial surplus or deficit'],
   },
 ]
 
@@ -114,7 +114,7 @@ export default function Landing() {
           <div className="text-center mb-12">
             <h2 className="section-title">One Program. Added Pharmacist Support.</h2>
             <p className="section-sub">
-              The same eligible population is modeled with and without the added pharmacist role. Physician referrals continue; overlapping referrals never create duplicate RPM participants.
+              The same eligible population and routine physician/nurse/assistant service are modeled with and without added pharmacist support. Overlapping referrals never create duplicate RPM participants. A separate staffing sensitivity explores pharmacist/technician delivery.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -229,3 +229,10 @@
   .recruitment-sim .sim-outcome-summary dd { font-size:17px; }
   .recruitment-sim .sim-shared-links { flex-direction:column; align-items:flex-start; }
 }
+
+.recruitment-sim .sim-usual-workflow { color:#5b7188; font-size:12px; line-height:1.7; margin:8px 0 14px; }
+.recruitment-sim .sim-patient-ledger { background:white; border:1px solid #d5e0eb; border-radius:12px; padding:18px; }
+.recruitment-sim .sim-patient-ledger h4 { color:#244f79; font-weight:750; margin:18px 0 8px; }
+.recruitment-sim .sim-patient-ledger p { font-size:11px; color:#5d748b; line-height:1.7; margin-top:12px; }
+.recruitment-sim .study-team-summary { margin:18px 0; }
+.recruitment-sim .study-team-summary p { color:#536c82; font-size:12px; line-height:1.7; margin:12px 0; }

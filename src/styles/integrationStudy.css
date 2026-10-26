@@ -109,3 +109,14 @@
 @media (max-width:600px) { .study-payment-values { grid-template-columns:1fr; gap:16px; } }
 @media (max-width:800px) { .study-bridge {grid-template-columns:1fr 1fr;} .study-shell{padding-left:20px;padding-right:20px;} .study-metric{padding:18px;} .study-metric strong{font-size:27px;} .study-flow{grid-template-columns:1fr 1fr;} }
 @media (max-width:600px) { .study-hero{padding-top:36px;} .study-hero-bottom,.study-scenario-bar,.study-actions,.study-export-row{flex-direction:column;align-items:stretch;} .study-metrics,.study-fields,.study-break-even{grid-template-columns:1fr;} .study-metrics{gap:10px;} .study-metric strong{font-size:32px;margin:8px 0;} .study-card{padding:20px;} .study-tabs button{padding:12px 10px;} .study-bridge{grid-template-columns:1fr;} .study-action-buttons{flex-wrap:wrap;} .study-scenario-bar label{max-width:100%;} }
+
+/* Shared study pathways and task-based staffing summaries. */
+.study-pathway-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin:20px 0; padding:24px; border:1px solid #cbdce9; border-radius:13px; background:#fff; color:#19304b; }
+.study-pathway-summary > div { padding:16px; background:#f4f8fc; border-radius:9px; }
+.study-pathway-summary > div:nth-child(2) { background:#eef9f5; }
+.study-pathway-summary h3 { font-size:17px; font-weight:750; margin:5px 0 10px; color:#183d64; }
+.study-pathway-summary p { font-size:12px; line-height:1.8; color:#536c82; }
+.study-pathway-summary .study-pathway-note { grid-column:1 / -1; font-size:11px; }
+.study-card > h3 { margin-top:28px; font-size:15px; font-weight:750; color:#234b75; }
+.study-team-summary .study-table td:last-child { color:#173d68; font-weight:500; }
+@media(max-width:700px) { .study-pathway-summary { grid-template-columns:1fr; padding:15px; gap:12px; } }

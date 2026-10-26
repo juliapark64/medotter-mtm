@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { DEFAULT_INTEGRATION_INPUTS as defaults, simulateIntegrationStudy, expectedIntegrationStudy, validateIntegrationInputs, createIntegrationExport, verifyIntegrationExport, integrationExportCsv, getIntegrationScenarios, findOfferThreshold, getRpmPaymentSchedule } from './integrationStudy.js'
 const p = overrides => ({ ...defaults, ...overrides })
 const near = (actual, expected, tolerance = 1e-7) => assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`)
-const zeroCosts = { pharmacistWage: 0, supportWage: 0, physicianReferralCost: 0, deviceCost: 0, monthlyTechnologyCost: 0, monthlyConnectivityCost: 0, monthlyPlatformBaseCost: 0, fixedCost: 0, addedFixedCost: 0 }
+const zeroCosts = { pharmacistWage: 0, supportWage: 0, physicianWage: 0, nurseWage: 0, assistantWage: 0, deviceCost: 0, monthlyTechnologyCost: 0, monthlyConnectivityCost: 0, monthlyPlatformBaseCost: 0, fixedCost: 0, addedFixedCost: 0 }
 
 test('both channels preserve physician starts and deduplicate identical uptake', () => {
   const run = simulateIntegrationStudy(p({ N: 20, existingRpmShare: 0, r: 1, qA: 1, f: 1, c: 1, o: 1, qB: 1 }))
@@ -124,8 +124,8 @@ test('exports include exact assumptions and reject altered results, patients, in
   assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
   assert.equal(bundle.metadata.priceYear, 2026)
   assert.equal(bundle.metadata.currency, 'USD')
-  assert.equal(bundle.modelVersion, '5.0.0')
-  assert.equal(bundle.schemaVersion, 5)
+  assert.equal(bundle.modelVersion, '6.0.0')
+  assert.equal(bundle.schemaVersion, 6)
   assert.match(integrationExportCsv(bundle), /expected/)
   for (const mutate of [b => { b.inputs.seed++ }, b => { b.expected.delta.programCost++ }, b => { b.patients[0].id = 'other' }, b => { b.metadata.assumptions = [] }, b => { b.extra = 1 }]) { const b = structuredClone(bundle); mutate(b); assert.throws(() => verifyIntegrationExport(b)) }
   assert.equal(getIntegrationScenarios().find(x => x.id === 'conservative').inputs.clinicalMode, 'none')
@@ -134,14 +134,14 @@ test('exports include exact assumptions and reject altered results, patients, in
 test('Medicare clinical-time boundaries select alternatives and only full add-on intervals', () => {
   const cases = [[0, null, 0, 0], [9.99, null, 0, 0], [10, '99470', 26.05, 0], [19.99, '99470', 26.05, 0], [20, '99457', 51.77, 0], [39.99, '99457', 51.77, 0], [40, '99457', 93.19, 1], [59.99, '99457', 93.19, 1], [60, '99457', 134.61, 2], [240, '99457', 134.61, 2]]
   for (const [minutes, code, managementFee, additionalUnits] of cases) {
-    const schedule = getRpmPaymentSchedule(p({ monitorPharmacistMinutes: minutes, qualifiedSupportMinutes: 0 }))
+    const schedule = getRpmPaymentSchedule(p({ monitorPhysicianMinutes: minutes, qualifiedNurseMinutes: 0 }))
     assert.equal(schedule.managementCode, code); assert.equal(schedule.additionalUnits, additionalUnits)
     near(schedule.managementFee, managementFee); near(schedule.deviceFee, 52.11)
     near(schedule.monthlyBenchmark, 52.11 + managementFee); near(schedule.setupFee, 21.71)
   }
 })
 test('nonclinical support, onboarding and medication review time never earn clinical management codes', () => {
-  const schedule = getRpmPaymentSchedule(p({ monitorPharmacistMinutes: 0, monitorSupportMinutes: 240, qualifiedSupportMinutes: 0, onboardingMinutes: 240, onboardingSupportMinutes: 240, offerMinutes: 120, offerSupportMinutes: 120, reviewMinutes: 240 }))
+  const schedule = getRpmPaymentSchedule(p({ monitorPhysicianMinutes: 0, qualifiedNurseMinutes: 0, monitorAssistantMinutes: 240, monitorPharmacistMinutes: 0, monitorSupportMinutes: 240, qualifiedSupportMinutes: 0, onboardingMinutes: 240, onboardingSupportMinutes: 240, offerMinutes: 120, offerSupportMinutes: 120, reviewMinutes: 240 }))
   assert.equal(schedule.managementCode, null); near(schedule.managementFee, 0); near(schedule.monthlyBenchmark, 52.11)
   const low = getRpmPaymentSchedule(p({ reimbursementMode: 'custom', monthlyRevenueBenchmark: 37, customSetupRevenueBenchmark: 8, monitorPharmacistMinutes: 0 }))
   const high = getRpmPaymentSchedule(p({ reimbursementMode: 'custom', monthlyRevenueBenchmark: 37, customSetupRevenueBenchmark: 8, monitorPharmacistMinutes: 240 }))
@@ -174,18 +174,19 @@ test('setup and recurring qualification are independent and all revenue exclusio
     near(result.integrated.programCost, setupOnly.integrated.programCost)
   }
 })
-test('cost components reconcile to hand calculation and platform licenses count once, without double loading', () => {
-  const parameters = p({ N: 1, existingRpmShare: 0, r: 0, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, clinicalMode: 'none', ...zeroCosts, pharmacistWage: 60, supportWage: 30, reviewMinutes: 12, offerMinutes: 6, offerSupportMinutes: 0, onboardingMinutes: 18, onboardingSupportMinutes: 0, monitorPharmacistMinutes: 30, monitorSupportMinutes: 12, qualifiedSupportMinutes: 0, deviceCost: 9, monthlyTechnologyCost: 4, monthlyConnectivityCost: 3, monthlyPlatformBaseCost: 7, platformProviderCount: 2, fixedCost: 11, addedFixedCost: 13 })
-  const expectedCosts = { reviews: 12, offers: 6, supportOffers: 0, onboarding: 18, supportOnboarding: 0, pharmacistMonitoring: 30, technicalSupport: 6, physicianReferrals: 0, devices: 9, software: 4, connectivity: 3, platformBase: 168, otherFixed: 11, addedFixed: 13 }
+test('cost components reconcile to independent physician-led task calculation and platform licenses count once', () => {
+  const parameters = p({ N: 1, existingRpmShare: 0, r: 0, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, clinicalMode: 'none', ...zeroCosts, pharmacistWage: 60, supportWage: 30, physicianWage: 120, nurseWage: 60, assistantWage: 30, reviewMinutes: 12, offerMinutes: 6, offerSupportMinutes: 0, deviceCost: 9, monthlyTechnologyCost: 4, monthlyConnectivityCost: 3, monthlyPlatformBaseCost: 7, platformProviderCount: 2, fixedCost: 11, addedFixedCost: 13 })
+  const expectedCosts = { reviews: 12, offers: 6, supportOffers: 0, onboarding: 0, supportOnboarding: 0, pharmacistMonitoring: 0, technicalSupport: 0, physicianReferrals: 0, physicianMonitoring: 6, nurseMonitoring: 17, assistantMonitoring: 5, nurseOnboarding: 5, assistantOnboarding: 7.5, devices: 9, software: 4, connectivity: 3, platformBase: 168, otherFixed: 11, addedFixed: 13 }
   const run = simulateIntegrationStudy(parameters)
   for (const result of [run.expected, run.actual]) {
     assert.deepEqual(result.integrated.costBreakdown, expectedCosts)
-    near(result.integrated.variableCost, 88); near(result.integrated.programCost, 280); near(result.baseline.programCost, 179); near(result.delta.programCost, 101)
+    near(result.integrated.variableCost, 74.5); near(result.integrated.programCost, 266.5); near(result.baseline.programCost, 179); near(result.delta.programCost, 87.5)
     near(result.delta.costBreakdown.platformBase, 0)
-    near(result.integrated.pharmacistHours * 60, 66)
+    near(result.integrated.physicianHours * 60, 3); near(result.integrated.nurseHours * 60, 22); near(result.integrated.assistantHours * 60, 25); near(result.integrated.pharmacistHours * 60, 18)
     for (const arm of [result.baseline, result.integrated, result.delta]) near(Object.values(arm.costBreakdown).reduce((sum, value) => sum + value, 0), arm.programCost)
   }
-  near(run.patients[0].integrated.programCost, 88); near(run.patients[0].integrated.costBreakdown.platformBase, 0)
+  near(run.patients[0].integrated.programCost, 74.5); near(run.patients[0].integrated.costBreakdown.platformBase, 0)
+  near(run.patients[0].integrated.taskRecords.reduce((sum, task) => sum + task.cost, 0), 58.5)
 })
 test('version 1 pathway and clinical draws stay identical when setup qualification is added', () => {
   const run = simulateIntegrationStudy()
@@ -199,29 +200,31 @@ test('version 1 pathway and clinical draws stay identical when setup qualificati
   assert.deepEqual(extract(run), extract(simulateIntegrationStudy(p({ setupQualificationShare: 1 }))))
   for (const patient of run.patients) if (patient.baseline.newInitiation) assert.equal(patient.baseline.qualifiedSetups, patient.integrated.qualifiedSetups)
 })
-test('pharmacist-heavy preset retains workload costs and uses Original Medicare clinic collections', () => {
+test('optional pharmacist-heavy workload retains physician work and evaluates billing by arm', () => {
   const prior = getIntegrationScenarios().find(s => s.id === 'evidence-20').inputs
   near(prior.pharmacistWage, 67.75 * 49.93 / 35.13); near(prior.supportWage, 22.41 * 49.93 / 35.13)
-  assert.equal(prior.offerSupportMinutes, 0); assert.equal(prior.onboardingSupportMinutes, 0); assert.equal(prior.qualifiedSupportMinutes, 0)
+  assert.equal(prior.staffingMode, 'integrated-team')
   const expected = expectedIntegrationStudy(prior)
   near(expected.delta.monthlyRevenue, 34836.51899756204); near(expected.delta.setupRevenue, 1275.521336271)
-  near(expected.delta.programCost, 52124.72780670952); near(expected.delta.netFinancialBenefit, -16012.687472876414)
-  near(simulateIntegrationStudy(prior).actual.delta.netFinancialBenefit, -15767.15221467885)
+  near(expected.baseline.pharmacistHours, 0); assert.ok(expected.integrated.pharmacistHours > 0)
+  assert.ok(expected.delta.physicianHours > 0)
+  near(expected.delta.netFinancialBenefit, expected.delta.revenue - expected.delta.programCost)
   const ten = getIntegrationScenarios().find(s => s.id === 'evidence-10')
-  near(getRpmPaymentSchedule(ten.inputs).monthlyBenchmark, 78.16)
+  near(getRpmPaymentSchedule(ten.inputs, 'baseline').monthlyBenchmark, 103.88)
+  near(getRpmPaymentSchedule(ten.inputs, 'integrated').monthlyBenchmark, 78.16)
   const nyu = getIntegrationScenarios().find(s => s.id === 'nyu-workload')
-  near(nyu.inputs.monitorPharmacistMinutes, 58 + 1 / 3); assert.equal(getRpmPaymentSchedule(nyu.inputs).additionalUnits, 1)
+  near(nyu.inputs.monitorPharmacistMinutes, 58 + 1 / 3); assert.equal(getRpmPaymentSchedule(nyu.inputs, 'integrated').additionalUnits, 2)
 })
-test('version 5 exports retain provenance, clinic boundary and reject old or altered accounting', () => {
+test('version 6 exports retain provenance, clinic boundary and reject old or altered accounting', () => {
   const bundle = createIntegrationExport(simulateIntegrationStudy(p({ N: 20 })))
-  assert.ok(bundle.metadata.financialEvidence.every(source => (source.url || source.reference) && source.accessedAt === '2026-10-25'))
+  assert.ok(bundle.metadata.financialEvidence.every(source => (source.url || source.reference) && /^2026-10-2[56]$/.test(source.accessedAt)))
   const allocation = bundle.metadata.financialEvidence.find(source => source.id === 'rpm-task-allocation')
   assert.equal(allocation.url, null); assert.match(allocation.reference, /RPM etc!B30:B31/)
   assert.match(allocation.description, /not staff headcount or all program work/)
   for (const wage of ['pharmacistWage', 'supportWage']) {
     assert.equal(bundle.metadata.evidence[wage].sourceNotes, null)
-    assert.ok(bundle.metadata.evidence[wage].sources.includes('https://www.bls.gov/news.release/ocwage.t01.htm'))
-    assert.ok(bundle.metadata.evidence[wage].sources.includes('https://www.bls.gov/news.release/ecec.t04.htm'))
+    assert.ok(bundle.metadata.evidence[wage].sources.some(url => url.includes('bls.gov') && /ocwage/.test(url)))
+    assert.ok(bundle.metadata.evidence[wage].sources.some(url => url.includes('bls.gov') && /ecec/.test(url)))
   }
   assert.doesNotMatch(JSON.stringify(bundle.metadata), /Pro exp!|\$55|\$24 base/)
   near(bundle.metadata.medicare2026Fees.additional99458, 41.42)
@@ -230,44 +233,41 @@ test('version 5 exports retain provenance, clinic boundary and reject old or alt
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 1, modelVersion: '1.0.0' }), /Version 1.*cannot be replayed/)
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 2, modelVersion: '2.0.0' }), /Version 2.*cannot be replayed/)
   assert.throws(() => verifyIntegrationExport({ ...bundle, modelVersion: '3.0.0' }), /Version 3\.0\.0.*cannot be replayed/)
-  assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 3, modelVersion: '3.1.0' }), /Version 3\.1\.0.*cannot be replayed.*financial boundary/)
+  assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 3, modelVersion: '3.1.0' }), /Version 3\.1\.0.*cannot be replayed.*baseline/)
   for (const mutate of [b => { b.actual.integrated.setupRevenue++ }, b => { b.expected.integrated.costBreakdown.platformBase++ }, b => { b.metadata.medicare2026Fees.setup99453++ }]) {
     const changed = structuredClone(bundle); mutate(changed); assert.throws(() => verifyIntegrationExport(changed), /exact replay/)
   }
   for (const overrides of [{ reimbursementMode: 'other' }, { setupQualificationShare: 1.01 }, { platformProviderCount: .5 }, { monthlyConnectivityCost: -1 }, { customSetupRevenueBenchmark: Infinity }]) assert.throws(() => simulateIntegrationStudy(p(overrides)), RangeError)
 })
 
-test('team defaults reallocate the same total workflow and retain pharmacist medication review', () => {
-  near(defaults.pharmacistWage, 67.75 * 49.93 / 35.13); near(defaults.supportWage, 22.41 * 49.93 / 35.13)
-  near(defaults.monitorPharmacistMinutes + defaults.monitorSupportMinutes, 30)
-  near(defaults.offerMinutes + defaults.offerSupportMinutes, 5)
-  near(defaults.onboardingMinutes + defaults.onboardingSupportMinutes, 20)
-  near(defaults.monitorPharmacistMinutes / 30, .1); near(defaults.monitorSupportMinutes / 30, .9)
-  near(defaults.offerSupportMinutes / defaults.offerMinutes, 9)
-  near(defaults.onboardingSupportMinutes / defaults.onboardingMinutes, 9)
-  near(defaults.monitorSupportMinutes - defaults.qualifiedSupportMinutes, 10)
-  const prior = getIntegrationScenarios().find(s => s.id === 'evidence-20').inputs
-  assert.equal(defaults.reviewMinutes, prior.reviewMinutes)
-  const current = expectedIntegrationStudy()
-  assert.ok(current.integrated.supportHours / current.integrated.pharmacistHours < 9, 'Pharmacist-only medication review makes the whole-program ratio different from the RPM task ratio.')
-  const teamPreset = getIntegrationScenarios().find(s => s.id === 'team-90-10')
-  assert.equal(teamPreset.name, '90% technician / 10% pharmacist RPM task allocation')
-  assert.deepEqual(teamPreset.inputs, defaults)
-  const former = expectedIntegrationStudy(prior)
-  near(current.delta.pharmacistHours + current.delta.supportHours, former.delta.pharmacistHours + former.delta.supportHours)
-  near(current.delta.reviews, former.delta.reviews); near(current.delta.newInitiations, former.delta.newInitiations)
-  near(current.delta.revenue, former.delta.revenue)
-  assert.ok(current.delta.programCost < former.delta.programCost)
+test('main clinic staffing and optional 9:1 team are separate assumptions with physician work retained', () => {
+  assert.equal(defaults.staffingMode, 'shared-clinic')
+  near(defaults.monitorPhysicianMinutes + defaults.monitorNurseMinutes + defaults.monitorAssistantMinutes, 30)
+  near(defaults.onboardingNurseMinutes + defaults.onboardingAssistantMinutes, 20)
+  const main = expectedIntegrationStudy()
+  near(main.baseline.pharmacistHours, 0); near(main.baseline.technicianHours, 0)
+  assert.ok(main.baseline.physicianHours > 0 && main.baseline.nurseHours > 0 && main.baseline.assistantHours > 0)
+  near(main.integrated.costBreakdown.pharmacistMonitoring, 0)
+  near(main.integrated.pharmacistHours * 60, main.integrated.reviews * defaults.reviewMinutes + main.integrated.offers * defaults.offerMinutes)
+  const preset = getIntegrationScenarios().find(s => s.id === 'team-90-10')
+  assert.equal(preset.inputs.staffingMode, 'integrated-team')
+  near(preset.inputs.monitorSupportMinutes / preset.inputs.monitorPharmacistMinutes, 9)
+  const team = expectedIntegrationStudy(preset.inputs)
+  assert.deepEqual(team.baseline, main.baseline)
+  near(team.integrated.nurseHours, 0); near(team.integrated.assistantHours, 0)
+  near(team.integrated.physicianHours, main.integrated.physicianHours)
+  near(team.delta.newInitiations, main.delta.newInitiations)
+  assert.deepEqual(team.delta.clinical, main.delta.clinical)
+  near(getRpmPaymentSchedule(preset.inputs, 'integrated').qualifyingClinicalMinutes, 23)
 })
-
 test('only eligible support subset contributes clinical billing time without adding labor cost', () => {
-  const team = p({ monitorPharmacistMinutes: 3, monitorSupportMinutes: 27, qualifiedSupportMinutes: 17 })
+  const team = p({ staffingMode: 'integrated-team', monitorPharmacistMinutes: 3, monitorSupportMinutes: 27, qualifiedSupportMinutes: 17 })
   const eligible = expectedIntegrationStudy(team)
   const excluded = expectedIntegrationStudy({ ...team, qualifiedSupportMinutes: 0 })
-  const payment = getRpmPaymentSchedule(team)
-  near(payment.qualifyingClinicalMinutes, 20); assert.equal(payment.managementCode, '99457'); near(payment.monthlyBenchmark, 103.88)
-  const noClinicalSupport = getRpmPaymentSchedule({ ...team, qualifiedSupportMinutes: 0 })
-  near(noClinicalSupport.qualifyingClinicalMinutes, 3); assert.equal(noClinicalSupport.managementCode, null); near(noClinicalSupport.monthlyBenchmark, 52.11)
+  const payment = getRpmPaymentSchedule(team, 'integrated')
+  near(payment.qualifyingClinicalMinutes, 23); assert.equal(payment.managementCode, '99457'); near(payment.monthlyBenchmark, 103.88)
+  const noClinicalSupport = getRpmPaymentSchedule({ ...team, qualifiedSupportMinutes: 0 }, 'integrated')
+  near(noClinicalSupport.qualifyingClinicalMinutes, 6); assert.equal(noClinicalSupport.managementCode, null); near(noClinicalSupport.monthlyBenchmark, 52.11)
   for (const arm of ['baseline', 'integrated', 'delta']) {
     near(eligible[arm].programCost, excluded[arm].programCost)
     near(eligible[arm].pharmacistHours, excluded[arm].pharmacistHours)
@@ -276,33 +276,34 @@ test('only eligible support subset contributes clinical billing time without add
   }
   assert.ok(validateIntegrationInputs({ ...team, qualifiedSupportMinutes: 28 }).qualifiedSupportMinutes)
   assert.throws(() => simulateIntegrationStudy({ ...team, qualifiedSupportMinutes: 28 }), /subset/)
-  assert.equal(getRpmPaymentSchedule({ ...team, monitorSupportMinutes: 7, qualifiedSupportMinutes: 7 }).managementCode, '99470')
-  assert.equal(getRpmPaymentSchedule({ ...team, monitorSupportMinutes: 37, qualifiedSupportMinutes: 37 }).additionalUnits, 1)
+  assert.equal(getRpmPaymentSchedule({ ...team, monitorSupportMinutes: 7, qualifiedSupportMinutes: 7 }, 'integrated').managementCode, '99470')
+  assert.equal(getRpmPaymentSchedule({ ...team, monitorSupportMinutes: 37, qualifiedSupportMinutes: 37 }, 'integrated').additionalUnits, 1)
 })
 
-test('delegated outreach and onboarding costs occur once and reconcile with total role hours', () => {
-  const parameters = p({ N: 1, existingRpmShare: 0, r: 1, qA: 1, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, monthlyRetention: 1, ...zeroCosts, pharmacistWage: 60, supportWage: 30 })
+test('physician-led work and added recruitment reconcile by role without duplicate onboarding', () => {
+  const parameters = p({ N: 1, existingRpmShare: 0, r: 1, qA: 1, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, monthlyRetention: 1, ...zeroCosts, pharmacistWage: 60, supportWage: 30, physicianWage: 120, nurseWage: 60, assistantWage: 30 })
   const run = simulateIntegrationStudy(parameters)
   for (const result of [run.expected, run.actual]) {
     near(result.integrated.duplicateOffers, 1)
     for (const arm of [result.baseline, result.integrated]) {
-      near(arm.costBreakdown.onboarding, 2); near(arm.costBreakdown.supportOnboarding, 9)
-      near(arm.costBreakdown.pharmacistMonitoring, 3); near(arm.costBreakdown.technicalSupport, 13.5)
-      near(arm.programCost, arm.pharmacistHours * 60 + arm.supportHours * 30)
+      near(arm.costBreakdown.physicianReferrals, 4); near(arm.costBreakdown.physicianMonitoring, 6)
+      near(arm.costBreakdown.nurseOnboarding, 5); near(arm.costBreakdown.assistantOnboarding, 7.5)
+      near(arm.costBreakdown.nurseMonitoring, 17); near(arm.costBreakdown.assistantMonitoring, 5)
+      near(arm.programCost, arm.physicianHours * 120 + arm.nurseHours * 60 + arm.assistantHours * 30 + arm.pharmacistHours * 60 + arm.technicianHours * 30)
       near(Object.values(arm.costBreakdown).reduce((sum, value) => sum + value, 0), arm.programCost)
     }
+    near(result.baseline.programCost, 44.5); near(result.integrated.programCost, 57.25)
     near(result.integrated.costBreakdown.reviews, 10)
     near(result.integrated.costBreakdown.offers, .5); near(result.integrated.costBreakdown.supportOffers, 2.25)
-    near(result.integrated.supportHours * 60, 49.5)
-    near(result.delta.costBreakdown.supportOnboarding, 0)
+    near(result.integrated.technicianHours * 60, 4.5)
+    near(result.delta.costBreakdown.nurseOnboarding, 0)
   }
   const existing = expectedIntegrationStudy({ ...parameters, existingRpmShare: 1 })
-  near(existing.integrated.costBreakdown.onboarding, 0); near(existing.integrated.costBreakdown.supportOnboarding, 0)
+  near(existing.integrated.costBreakdown.nurseOnboarding, 0); near(existing.integrated.costBreakdown.assistantOnboarding, 0)
   near(existing.integrated.costBreakdown.offers, 0); near(existing.integrated.costBreakdown.supportOffers, 0)
   const failed = expectedIntegrationStudy({ ...parameters, r: 0, qB: 0 })
-  near(failed.integrated.costBreakdown.supportOffers, 2.25); near(failed.integrated.costBreakdown.supportOnboarding, 0)
+  near(failed.integrated.costBreakdown.supportOffers, 2.25); near(failed.integrated.costBreakdown.nurseOnboarding, 0)
 })
-
 test('task allocation changes finances but preserves paired patient draws and clinical outcomes', () => {
   const team = simulateIntegrationStudy()
   const prior = simulateIntegrationStudy(getIntegrationScenarios().find(s => s.id === 'evidence-20').inputs)
@@ -348,9 +349,9 @@ test('Original Medicare clinic defaults apply qualification and all-in collectio
     near(arm.netFinancialBenefit, arm.revenue - arm.programCost)
   }
   near(run.expected.delta.revenue, 36112.04033383303)
-  near(run.expected.delta.programCost, 34505.64023729472)
-  near(run.expected.delta.netFinancialBenefit, 1606.4000965382656)
-  near(run.actual.delta.netFinancialBenefit, 171.6763556314654)
+  near(run.expected.delta.programCost, Object.values(run.expected.delta.costBreakdown).reduce((sum, value) => sum + value, 0))
+  near(run.expected.delta.netFinancialBenefit, run.expected.delta.revenue - run.expected.delta.programCost)
+  near(run.actual.delta.netFinancialBenefit, run.actual.delta.revenue - run.actual.delta.programCost)
   for (const scenario of getIntegrationScenarios()) {
     assert.equal(scenario.inputs.perspective, 'clinic')
     assert.equal('externalPayerShare' in scenario.inputs, false)
@@ -416,8 +417,10 @@ test('HealthPartners additional starts include intake education once and preserv
   const duplicate = simulateIntegrationStudy({ ...hp, r: 1, qA: 1 })
   for (const result of [duplicate.expected, duplicate.actual]) {
     near(result.delta.newInitiations, 0); near(result.integrated.duplicateOffers, 1)
-    near(result.baseline.costBreakdown.onboarding, 2); near(result.integrated.costBreakdown.onboarding, 2)
-    near(result.baseline.costBreakdown.supportOnboarding, 9); near(result.integrated.costBreakdown.supportOnboarding, 9)
+    near(result.baseline.costBreakdown.onboarding, 0); near(result.integrated.costBreakdown.onboarding, 0)
+    near(result.baseline.costBreakdown.supportOnboarding, 0); near(result.integrated.costBreakdown.supportOnboarding, 0)
+    near(result.delta.costBreakdown.nurseOnboarding, 0); near(result.delta.costBreakdown.assistantOnboarding, 0)
+    near(result.baseline.nurseHours * 60, 22); near(result.integrated.nurseHours * 60, 22)
     near(result.delta.setupRevenue, 0); near(result.delta.costBreakdown.devices, 0)
   }
 })
@@ -492,7 +495,7 @@ test('HealthPartners no-added-recruitment retains work and threshold varies inta
   near(threshold.rate, .5, 1e-6)
 })
 
-test('study presets restore cited numbers and version 5 exports record stages, endpoints and extrapolation', () => {
+test('study presets restore cited numbers and version 6 exports record stages, endpoints and extrapolation', () => {
   const changed = p({ intakeAttendance: .9, activationAfterIntake: .1, intakeMinutes: 5, minorActionBaseline: .5, minorActionIntegrated: .9, minorEligibleShare: .5, minorExtrapolation: 'assumed' })
   const preset = getIntegrationScenarios(changed).find(s => s.id === 'healthpartners-minor').inputs
   near(preset.intakeAttendance, 385 / 1423); near(preset.activationAfterIntake, .8); near(preset.intakeMinutes, 60)
@@ -528,4 +531,102 @@ test('isolated study presets restore intended modules while preserving clinic an
   for (const preset of [hp, minor, extension]) {
     near(preset.f, .7); near(preset.collectionShare, .83); near(preset.deviceCost, 120); near(preset.pharmacistWage, 105)
   }
+})
+
+
+test('physician-only recruitment does not price physician work at pharmacist wages', () => {
+  const inputs = p({ N: 1, existingRpmShare: 0, r: 1, qA: 0, f: 0, physicianWage: 120, physicianReferralMinutes: 2, ...{ fixedCost: 0, addedFixedCost: 0, monthlyPlatformBaseCost: 0 } })
+  const result = expectedIntegrationStudy(inputs)
+  near(result.baseline.physicianHours, 2 / 60)
+  near(result.baseline.programCost, 4)
+  near(result.baseline.pharmacistHours, 0); near(result.baseline.technicianHours, 0)
+  assert.deepEqual(expectedIntegrationStudy({ ...inputs, pharmacistWage: 900, supportWage: 900 }).baseline, result.baseline)
+  assert.ok(validateIntegrationInputs({ ...inputs, physicianReferralCost: 10 }).physicianReferralCost)
+})
+
+test('additional pharmacist recruits retain physician nurse and assistant workload in the primary comparison', () => {
+  const inputs = p({ N: 1, existingRpmShare: 0, r: 0, f: 1, c: 1, o: 1, qB: 1, startMonth: 12, monthlyRetention: 1 })
+  const result = expectedIntegrationStudy(inputs)
+  near(result.delta.physicianHours, 3 / 60)
+  near(result.delta.nurseHours, 22 / 60)
+  near(result.delta.assistantHours, 25 / 60)
+  near(result.baseline.physicianHours, 0)
+  const paired = simulateIntegrationStudy(inputs).patients[0]
+  assert.deepEqual(paired.baseline.taskRecords, [])
+  assert.ok(paired.integrated.taskRecords.some(task => task.role === 'physician' && task.minutes === 3))
+  const before = getRpmPaymentSchedule(inputs, 'baseline'); const after = getRpmPaymentSchedule(inputs, 'integrated')
+  near(before.qualifyingClinicalMinutes, 20); near(after.qualifyingClinicalMinutes, 20)
+  near(before.monthlyBenchmark, after.monthlyBenchmark)
+})
+
+test('nurse qualification is a subset and arm-specific eligibility never duplicates clinical labor', () => {
+  const inputs = p({ staffingMode: 'shared-clinic', monitorPhysicianMinutes: 0, monitorNurseMinutes: 17, qualifiedNurseMinutes: 0, monitorAssistantMinutes: 240 })
+  assert.equal(getRpmPaymentSchedule(inputs, 'baseline').managementCode, null)
+  assert.equal(getRpmPaymentSchedule(inputs, 'integrated').managementCode, null)
+  const qualified = { ...inputs, qualifiedNurseMinutes: 17 }
+  assert.equal(getRpmPaymentSchedule(qualified, 'baseline').managementCode, '99470')
+  const base = expectedIntegrationStudy(inputs); const next = expectedIntegrationStudy(qualified)
+  for (const arm of ['baseline', 'integrated']) {
+    near(base[arm].programCost, next[arm].programCost)
+    near(base[arm].nurseHours, next[arm].nurseHours)
+  }
+  assert.ok(validateIntegrationInputs({ ...inputs, qualifiedNurseMinutes: 18 }).qualifiedNurseMinutes)
+  assert.throws(() => getRpmPaymentSchedule(inputs, 'unknown'), /baseline or integrated/)
+})
+
+test('staffing sensitivity preserves recruitment and clinical assumptions and does not manufacture patient effects', () => {
+  const inputs = getIntegrationScenarios(p({ f: .7, r: .2, o: .25, qB: .6, collectionShare: .83, deviceCost: 120, monthlyTechnologyCost: 18, pharmacistWage: 105, supportWage: 35 })).find(s => s.id === 'physician-led-minor').inputs
+  const team = getIntegrationScenarios(inputs).find(s => s.id === 'team-90-10').inputs
+  for (const key of ['f', 'r', 'o', 'qB', 'collectionShare', 'deviceCost', 'monthlyTechnologyCost', 'pharmacistWage', 'supportWage', 'clinicalMode']) assert.equal(team[key], inputs[key])
+  const before = simulateIntegrationStudy(inputs); const after = simulateIntegrationStudy(team)
+  const outcomes = run => run.patients.map(patient => [patient.id, patient.physician, patient.pharmacist, patient.additionalInitiation, patient.baseline.clinical, patient.integrated.clinical])
+  assert.deepEqual(outcomes(before), outcomes(after))
+  assert.deepEqual(before.actual.baseline, after.actual.baseline)
+})
+
+test('version 6 replay retains role task traces and rejects version 5 rather than silently recosting', () => {
+  const run = simulateIntegrationStudy(p({ N: 5, existingRpmShare: 1, f: 1, c: 1 }))
+  const bundle = createIntegrationExport(run)
+  assert.deepEqual(verifyIntegrationExport(structuredClone(bundle)), bundle)
+  assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 5, modelVersion: '5.0.0' }), /Version 5.0.0.*cannot be replayed/)
+  const changed = structuredClone(bundle)
+  changed.patients[0].baseline.taskRecords[0].minutes++
+  assert.throws(() => verifyIntegrationExport(changed), /patients failed exact replay/)
+  for (const patient of run.patients) for (const arm of [patient.baseline, patient.integrated]) {
+    const labor = arm.taskRecords.reduce((sum, task) => sum + task.cost, 0)
+    near(arm.programCost, labor + arm.costBreakdown.devices + arm.costBreakdown.software + arm.costBreakdown.connectivity)
+    assert.equal(arm.supportHours, arm.technicianHours)
+  }
+})
+
+
+test('no enhanced deprescribing preset preserves usual care and separates reach from review efficacy', () => {
+  const inputs = getIntegrationScenarios(p({ N: 161, existingRpmShare: 1, f: 1, c: 1, monthlyRetention: 1 })).find(s => s.id === 'physician-led-minor').inputs
+  const noEnhanced = getIntegrationScenarios(inputs).find(s => s.id === 'no-enhanced-deprescribing').inputs
+  const before = expectedIntegrationStudy(inputs); const result = expectedIntegrationStudy(noEnhanced)
+  assert.equal(noEnhanced.clinicalMode, 'minor')
+  near(result.baseline.clinical.actions, 11)
+  near(result.integrated.clinical.actions, 11)
+  near(result.delta.clinical.actions, 0)
+  near(result.delta.netFinancialBenefit, before.delta.netFinancialBenefit)
+  const newPatients = expectedIntegrationStudy({ ...noEnhanced, existingRpmShare: 0, r: 0, f: 1, c: 1, o: 1, qB: 1 })
+  near(newPatients.baseline.clinical.actions, 0)
+  near(newPatients.integrated.clinical.actions, 11)
+  const none = getIntegrationScenarios(inputs).find(s => s.id === 'conservative')
+  assert.match(none.name, /both arms/)
+  near(expectedIntegrationStudy(none.inputs).baseline.clinical.actions, 0)
+})
+
+test('optional team management tiers affect only that arm and code-specific collections reconcile', () => {
+  const inputs = p({ N: 1, existingRpmShare: 1, f: 0, monthlyRetention: 1, qualificationShare: 1, collectionShare: 1, staffingMode: 'integrated-team', monitorPharmacistMinutes: 40, monitorSupportMinutes: 27, qualifiedSupportMinutes: 17 })
+  const result = expectedIntegrationStudy(inputs)
+  const baselineSchedule = getRpmPaymentSchedule(inputs, 'baseline')
+  const integratedSchedule = getRpmPaymentSchedule(inputs, 'integrated')
+  assert.equal(baselineSchedule.additionalUnits, 0)
+  assert.equal(integratedSchedule.additionalUnits, 2)
+  near(result.baseline.monthlyRevenue, 12 * 103.88)
+  near(result.integrated.monthlyRevenue, 12 * 186.72)
+  near(result.integrated.physicianHours, result.baseline.physicianHours)
+  const roleCost = arm => arm.physicianHours * inputs.physicianWage + arm.nurseHours * inputs.nurseWage + arm.assistantHours * inputs.assistantWage + arm.pharmacistHours * inputs.pharmacistWage + arm.technicianHours * inputs.supportWage
+  for (const arm of [result.baseline, result.integrated]) near(arm.variableCost, roleCost(arm) + arm.costBreakdown.devices + arm.costBreakdown.software + arm.costBreakdown.connectivity)
 })

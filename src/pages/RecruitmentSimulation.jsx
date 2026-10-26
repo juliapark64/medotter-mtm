@@ -2,6 +2,8 @@ import { useEffect, useMemo, useReducer, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useIntegrationStudy } from '../context/IntegrationStudyContext'
 import { FINANCIAL_EVIDENCE, getIntegrationScenarios, getRpmPaymentSchedule } from '../lib/integrationStudy'
+import { STUDY_COST_LABELS, STUDY_HOUR_ROWS, ClinicPathwaySummary, RecurringStaffingSummary, PairedPaymentSummary, PatientTaskLedger } from '../components/StudyStaffing'
+import '../styles/integrationStudy.css'
 import rooms from '../assets/simulation/physician-pharmacy-rooms.png'
 import patientSprite from '../assets/simulation/synthetic-patient.png'
 import '../styles/recruitmentSimulation.css'
@@ -87,14 +89,14 @@ function phaseContent(patient, phase, inputs) {
     }
     case 2: return {
       title: b.participating ? 'Monitoring contributes service months' : 'No RPM service in this realization',
-      note: `These are modeled service-month totals for the budget year, not elapsed playback time. Staffing assumes ${number(inputs.monitorPharmacistMinutes)} pharmacist and ${number(inputs.monitorSupportMinutes)} non-pharmacist staff minutes per active month. Of the staff time, ${number(inputs.qualifiedSupportMinutes)} minutes are assumed to qualify as supervised clinical treatment management; the remaining ${number(inputs.monitorSupportMinutes - inputs.qualifiedSupportMinutes)} minutes do not enter the billing threshold.`,
+      note: `These are service-month totals for the budget year, not elapsed playback time. The baseline uses ${number(inputs.monitorPhysicianMinutes)} physician, ${number(inputs.monitorNurseMinutes)} nurse and ${number(inputs.monitorAssistantMinutes)} medical-assistant minutes per active month, with no pharmacist involvement. ${inputs.staffingMode === 'shared-clinic' ? 'The integrated pathway retains this routine care team and adds pharmacist recruitment and review.' : 'The optional integrated pathway replaces routine nurse/assistant work with pharmacist/technician work, while physician clinical review remains.'} All task durations are planning assumptions.`,
       fields: [
         ['Current program · active months', number(a.activeMonths)],
         ['With MTM integration · active months', number(b.activeMonths)],
         ['Added service months', signed(b.activeMonths - a.activeMonths)],
-        ['Qualifying clinical minutes per active month', number(inputs.monitorPharmacistMinutes + inputs.qualifiedSupportMinutes)],
-        ['With MTM · pharmacist hours, all tasks', number(b.pharmacistHours)],
-        ['With MTM · staff hours, all tasks', number(b.supportHours)],
+        ['Baseline · qualifying clinical minutes/month', number(getRpmPaymentSchedule(inputs, 'baseline').qualifyingClinicalMinutes)],
+        ['Integrated · qualifying clinical minutes/month', number(getRpmPaymentSchedule(inputs, 'integrated').qualifyingClinicalMinutes)],
+        ...STUDY_HOUR_ROWS.map(([key, label]) => [label + ' · baseline → integrated', `${number(a[key])} → ${number(b[key])}`]),
         ['With MTM · reimbursement-qualified months', number(b.qualifiedMonths)],
         ['With MTM · one-time setup qualified', yesNo(b.qualifiedSetups)],
       ],
@@ -131,7 +133,7 @@ function phaseContent(patient, phase, inputs) {
   }
 }
 
-function UsualCareContext({ patient }) {
+function UsualCareContext({ patient, inputs }) {
   return (
     <section className="sim-usual-care" aria-label="Current-program context for the selected patient">
       <div className="sim-context-scene" style={{ backgroundImage: `url(${rooms})` }} aria-hidden="true">
@@ -139,11 +141,11 @@ function UsualCareContext({ patient }) {
       </div>
       <div className="sim-context-copy">
         <span className="sim-eyebrow">CURRENT PROGRAM · CONTINUES WITH INTEGRATION</span>
-        <h2>Physician referral remains part of usual care</h2>
+        <h2>Physician-led RPM with clinic staff</h2><p className="sim-usual-workflow">Physician referral → nurse/assistant onboarding → physician clinical review and nurse follow-up. No pharmacist participates in this baseline.</p>
         <dl>
           <div><dt>RPM at baseline</dt><dd>{yesNo(patient.existingRpm)}</dd></div>
           <div><dt>Usual physician referral</dt><dd>{yesNo(patient.physician.referred)}</dd></div>
-          <div><dt>RPM under current care</dt><dd>{yesNo(patient.baseline.participating)}</dd></div>
+          <div><dt>RPM under current care</dt><dd>{yesNo(patient.baseline.participating)}</dd></div><div><dt>Baseline physician hours</dt><dd>{number(patient.baseline.physicianHours)}</dd></div><div><dt>Baseline nurse / assistant hours</dt><dd>{number(patient.baseline.nurseHours)} / {number(patient.baseline.assistantHours)}</dd></div><div><dt>Routine care with integration</dt><dd>{inputs.staffingMode === 'shared-clinic' ? 'Same clinic team' : 'Physician + optional pharmacy team'}</dd></div>
         </dl>
       </div>
     </section>
@@ -185,54 +187,41 @@ function summarizeProcessed(patients) {
 }
 
 function StudyScenarioControls({ inputs, applyInputs, setNotice }) {
-  const scenarios = getIntegrationScenarios(inputs).filter(scenario => ['healthpartners-minor', 'healthpartners', 'minor', 'minor-extension', 'no-added-recruitment', 'conservative'].includes(scenario.id))
+  const scenarios = getIntegrationScenarios(inputs).filter(scenario => ['physician-led-minor', 'team-90-10', 'healthpartners-minor', 'healthpartners', 'minor', 'minor-extension', 'no-added-recruitment', 'no-enhanced-deprescribing', 'conservative'].includes(scenario.id))
   return <section className="sim-card sim-study-evidence" aria-label="Study scenarios and sources">
     <label htmlFor="sim-study-scenario">Load a shared study scenario</label>
     <select id="sim-study-scenario" value="" onChange={event => {
       const scenario = scenarios.find(item => item.id === event.target.value)
       if (scenario) { applyInputs(scenario.inputs); setNotice(`${scenario.name} applied to the calculator and microsimulation. Playback restarts with the same seed.`) }
-    }}><option value="" disabled>Choose HealthPartners, MINOR, or a sensitivity…</option>{scenarios.map(scenario => <option value={scenario.id} key={scenario.id}>{scenario.name}</option>)}</select>
+    }}><option value="" disabled>Choose the physician-led baseline or a sensitivity…</option>{scenarios.map(scenario => <option value={scenario.id} key={scenario.id}>{scenario.name}</option>)}</select>
     <div className="sim-evidence-columns">
-      <div><h3>{inputs.recruitmentMode === 'healthpartners' ? 'HealthPartners-informed recruitment · active' : 'HealthPartners recruitment reference'}</h3><p><strong>27.1% attended intake; 80% of attendees sent a BP reading.</strong> HyperLink 3 observed 385/1,423 intake attendees within six weeks. The offered one-hour appointment informs the workload assumption. Applying this workflow to Original Medicare, the targeted share and overlapping physician contacts is a transfer.</p>{inputs.recruitmentMode === 'healthpartners' && <p>Applied: {percent(inputs.f)} targeted; {percent(inputs.intakeAttendance)} attend; {percent(inputs.activationAfterIntake)} activate after intake; {number(inputs.intakeMinutes)} pharmacist minutes per attendee. Outreach is costed even for nonattendees.</p>}<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9649877/" target="_blank" rel="noreferrer">Read HealthPartners HyperLink 3 ↗</a></div>
-      <div><h3>{inputs.clinicalMode === 'minor' ? 'MINOR 45-day outcome · active' : 'MINOR deprescribing reference'}</h3><p><strong>19.3% with pharmacist management versus 6.8% with usual review.</strong> The trial reported 31/161 versus 11/161 patients receiving antihypertensive deprescribing at 45 days. Both groups had home monitoring. These are all-participant rates, not probabilities conditional on low BP.</p>{inputs.clinicalMode === 'minor' && <p>Applied: {percent(inputs.minorActionIntegrated)} versus {percent(inputs.minorActionBaseline)} in the assumed {percent(inputs.minorEligibleShare)} comparable share. {inputs.minorExtrapolation === 'assumed' ? 'Long-term persistence and medicine-equivalent costs are explicitly extrapolated.' : 'Persistence and medication savings are not estimated.'}</p>}<a href="https://www.sciencedirect.com/science/article/pii/S0149291823002035" target="_blank" rel="noreferrer">Read the MINOR trial ↗</a></div>
+      <div><h3>{inputs.recruitmentMode === 'healthpartners' ? 'Sensitivity: HealthPartners intake' : 'Remote MTM recruitment · illustrative'}</h3>{inputs.recruitmentMode === 'healthpartners' ? <><p><strong>27.1% attended intake; 80% of attendees sent a BP reading.</strong> HyperLink 3 observed 385/1,423 intake attendees within six weeks. The offered one-hour in-person appointment is a protocol workload assumption, not measured mean time. Transfer to a remote, delivered-device clinic remains uncertain.</p><p>Applied: {percent(inputs.f)} targeted; {percent(inputs.intakeAttendance)} attend; {percent(inputs.activationAfterIntake)} activate; {number(inputs.intakeMinutes)} pharmacist minutes per attendee. Outreach is costed even for nonattendees.</p></> : <><p>Remote pharmacist review and a first transmitted BP reading define the modeled recruitment pathway. No in-person appointment is required. The review reach, completion, offers, uptake and staff durations are assumptions or transferred benchmarks, not a measured combined recruitment effect.</p><p>Applied: {percent(inputs.f)} review reach, {percent(inputs.c)} completion, {percent(inputs.o)} offers and {percent(inputs.qB)} uptake, subject to overlap rules. HealthPartners remains an optional intake-workflow sensitivity.</p></>}<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9649877/" target="_blank" rel="noreferrer">HealthPartners reference and its different workflow ↗</a></div>
+      <div><h3>{inputs.clinicalMode === 'minor' ? 'MINOR 45-day outcome · active' : 'MINOR deprescribing reference'}</h3><p><strong>19.3% with pharmacist management versus 6.8% with usual review.</strong> The trial reported 31/161 versus 11/161 patients receiving antihypertensive deprescribing at 45 days. Both groups had home monitoring. These are all-participant rates, not probabilities conditional on low BP. The baseline continues to allow physician deprescribing.</p>{inputs.clinicalMode === 'minor' && <p>Applied: {percent(inputs.minorActionIntegrated)} versus {percent(inputs.minorActionBaseline)} in the assumed {percent(inputs.minorEligibleShare)} comparable share. {inputs.minorExtrapolation === 'assumed' ? 'Long-term persistence and medicine-equivalent costs are explicitly extrapolated.' : 'Persistence and medication savings are not estimated.'}</p>}<a href="https://www.sciencedirect.com/science/article/pii/S0149291823002035" target="_blank" rel="noreferrer">Read the MINOR trial ↗</a></div>
     </div>
     <p className="sim-footnote">The studies have different populations and workflows; the combined scenario is not a jointly tested intervention. Eligibility, timing, retention, recruitment overlap, billing qualification and collections remain assumptions. Current publisher/table MINOR counts use 11 controls; an older indexed abstract reports 9 (5.6%). The model does not turn synthetic outcomes into clinical evidence.</p>
   </section>
 }
 
 function FinancialAssumptions({ inputs }) {
-  const payment = getRpmPaymentSchedule(inputs)
-  return (
-    <details className="sim-finance-assumptions">
-      <summary>Applied payment and staffing assumptions <span>{payment.mode === 'medicare2026' ? '2026 Original Medicare fee-for-service benchmark' : payment.mode === 'none' ? 'No reimbursement' : 'Custom local payment benchmark'} · {number(payment.qualifyingClinicalMinutes)} qualifying clinical minutes/month · {number(inputs.monitorPharmacistMinutes)} pharmacist + {number(inputs.monitorSupportMinutes)} staff minutes</span></summary>
-      <div className="sim-finance-assumption-grid">
-        <section><h3>Benchmark before qualification</h3><strong>{money(payment.monthlyBenchmark)} <small>/ qualifying month</small></strong><p>{payment.mode === 'medicare2026' ? `${payment.deviceCodeLabel}: ${money(payment.deviceFee)}; ${payment.managementCode || 'no treatment-management code'}: ${money(payment.managementFee)}${payment.additionalUnits ? `, including ${number(payment.additionalUnits)} additional unit(s)` : ''}.` : 'The selected reimbursement scenario determines the monthly payment benchmark.'}</p><p>One-time setup benchmark: <b>{money(payment.setupFee)}</b> per qualifying new start. Existing RPM participants receive no new setup payment.</p></section>
-        <section><h3>Receipts remain conditional</h3><p>Applied planning assumptions: <b>{percent(inputs.qualificationShare)}</b> of active months and <b>{percent(inputs.setupQualificationShare)}</b> of new setups qualify. All-in collection realization: <b>{percent(inputs.collectionShare)}</b>. These percentages are not observed Medicare rates.</p><p>All clinic collections count, with no 50% payer-share reduction. Collections include payer and patient receipts against the total allowed amount; do not apply an additional 80% factor. Fee benchmarks do not guarantee payment.</p></section>
-        <section><h3>Work is shared across the team</h3><p><b>{number(inputs.monitorPharmacistMinutes)} pharmacist minutes</b> and <b>{number(inputs.monitorSupportMinutes)} staff minutes</b> per active month, at loaded hourly costs of {money(inputs.pharmacistWage)} and {money(inputs.supportWage)}.</p><p>Recurring labor: <b>{money((inputs.monitorPharmacistMinutes * inputs.pharmacistWage + inputs.monitorSupportMinutes * inputs.supportWage) / 60)}</b> per active month. Clinical time = {number(inputs.monitorPharmacistMinutes)} pharmacist + {number(inputs.qualifiedSupportMinutes)} qualifying supervised staff minutes. The other {number(inputs.monitorSupportMinutes - inputs.qualifiedSupportMinutes)} staff minutes are excluded from the threshold; no minute is charged twice.</p></section>
-      </div>
-      <p className="sim-finance-assumption-note">Routine RPM service starts from a 90% technician / 10% pharmacist time allocation. Outreach and usual-care onboarding retain this assumed ratio; pharmacist intake is separately costed. This is a workflow assumption inspired by the cashbook, not a total-program staffing or headcount ratio: added medication reviews remain pharmacist work. The applied minutes above reflect any edits. Default loaded wages use published BLS national means plus the healthcare compensation ratio once, approximately $96.29/hour for pharmacists and $31.85/hour for pharmacy technicians. The technician wage is a general occupational proxy, not a measured advanced-technician rate. Cashbook wages are excluded. Staff clinical eligibility remains an explicit assumption.</p>
-      <p className="sim-finance-assumption-note">{inputs.recruitmentMode === 'healthpartners' ? `Each targeted patient incurs ${number(inputs.offerMinutes)} pharmacist + ${number(inputs.offerSupportMinutes)} staff outreach minutes, even if intake is not attended. Each attendee incurs ${number(inputs.intakeMinutes)} pharmacist minutes even without RPM activation. This protocol-based workload replaces the separate review bundle and includes clinic device education; additional intake-driven starts are not charged a second clinic onboarding bundle. Usual-care initiators retain their onboarding costs.` : `Each offer uses ${number(inputs.offerMinutes)} pharmacist + ${number(inputs.offerSupportMinutes)} staff minutes; each new start uses ${number(inputs.onboardingMinutes)} pharmacist + ${number(inputs.onboardingSupportMinutes)} staff onboarding minutes. Medication review and follow-up remain ${number(inputs.reviewMinutes)} pharmacist minutes per completed review.`} Staff hours include these tasks as well as monthly service. Valued labor is a resource cost, not a prediction of immediate payroll savings.</p>
-      <p className="sim-finance-assumption-note">Applied technology costs: {money(inputs.deviceCost)} one-time vendor/device package per new start, {money(inputs.monthlyTechnologyCost)} technology bundle + {money(inputs.monthlyConnectivityCost)} separate connectivity per active patient-month, and {money(inputs.monthlyPlatformBaseCost)} platform base fee per provider-month × {number(inputs.platformProviderCount)} provider(s). The default cashbook package assumes device, software and cellular connectivity are included in its $90 one-time and $12 monthly charges; separate connectivity and base fees are zero. Usual-care onboarding is separate; intake-driven starts already include device education in the intake workload. Avoid adding fees for components already included. Any common base fee is counted once in each program.</p>
-      {payment.notes?.length > 0 && <ul className="sim-payment-notes">{payment.notes.map(note => <li key={note}>{note}</li>)}</ul>}
-      <p className="sim-finance-assumption-note">Medication effects are {inputs.clinicalMode === 'minor' ? 'transferred 45-day patient outcomes from MINOR; long-term persistence is separately specified' : inputs.clinicalMode === 'illustrative' ? 'illustrative scenario assumptions, not measured benefits' : inputs.clinicalMode === 'none' ? 'set to zero by assumption' : 'not estimated'}. Medication cost offsets are separate from clinic financial surplus. Unknown clinical effects do not prevent calculation of clinic collections minus program costs. <Link to="/calculator">Review or change the shared assumptions →</Link></p>
-      <details className="sim-finance-sources"><summary>Financial sources and limitations</summary><ul>{FINANCIAL_EVIDENCE.map(source => <li key={source.id}>{source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a> : <strong>{source.title}</strong>}<p>{source.description}</p>{source.reference && <p>{source.reference}</p>}</li>)}</ul></details>
-    </details>
-  )
+  return <details className="sim-finance-assumptions">
+    <summary>Applied payment and staffing assumptions <span>{inputs.staffingMode === 'shared-clinic' ? 'Same physician / nurse / assistant routine RPM team in both pathways' : 'Optional integrated pharmacy-team delivery; physician clinical review retained'}</span></summary>
+    <RecurringStaffingSummary inputs={inputs} />
+    <PairedPaymentSummary inputs={inputs} />
+    <p className="sim-finance-assumption-note">Billing qualification and all-in collection realization remain assumptions: {percent(inputs.qualificationShare)} of active months and {percent(inputs.setupQualificationShare)} of new setups qualify; {percent(inputs.collectionShare)} of allowed amounts is collected. These are not observed Medicare rates. Physician wages do not set reimbursement. Clinical time must meet the applicable service and supervision requirements; administrative oversight and coordination do not count.</p>
+    <p className="sim-finance-assumption-note">The main baseline contains no pharmacist or pharmacy-technician work. Added pharmacist recruitment and review are costed only with integration. Additional participants generate more physician and clinic-staff work. The optional 9:1 technician-to-pharmacist allocation describes only those two roles’ reference task minutes; physician clinical review and pharmacist medication reviews remain separate.</p>
+    <p className="sim-finance-assumption-note">Physician referrals use {number(inputs.physicianReferralMinutes)} minutes per referral at {money(inputs.physicianWage)}/hour. Baseline onboarding uses {number(inputs.onboardingNurseMinutes)} nurse + {number(inputs.onboardingAssistantMinutes)} assistant minutes per new start. Added offers use {number(inputs.offerMinutes)} pharmacist + {number(inputs.offerSupportMinutes)} technician minutes per {inputs.recruitmentMode === 'healthpartners' ? 'targeted patient' : 'offer'}. Completed review uses {number(inputs.recruitmentMode === 'healthpartners' ? inputs.intakeMinutes : inputs.reviewMinutes)} pharmacist minutes. Durations are assumptions, not measured mean workloads.</p>
+    <p className="sim-finance-assumption-note">Applied technology costs: {money(inputs.deviceCost)} once per new start; {money(inputs.monthlyTechnologyCost)} per active patient-month; {money(inputs.monthlyConnectivityCost)} additional connectivity; {money(inputs.monthlyPlatformBaseCost)} additional platform fee per provider-month × {number(inputs.platformProviderCount)}. The $90/$12 cashbook package is a business-plan assumption, not a verified Prevounce quote. Device, software and cellular are included under the user-specified package; separate connectivity/base fees default to zero. Monthly vendor fees currently apply even when an active month does not qualify for reimbursement.</p>
+    <p className="sim-finance-assumption-note">Occupation-specific BLS wage benchmarks and a common compensation loading approximation support employer costs. They do not establish local staffing minutes. Medication outcomes are transferred clinical scenarios; medication cost offsets do not enter clinic surplus. <Link to="/calculator">Review the shared inputs and evidence →</Link></p>
+    <details className="sim-finance-sources"><summary>Financial sources and limitations</summary><ul>{FINANCIAL_EVIDENCE.map(source => <li key={source.id}>{source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a> : <strong>{source.title}</strong>}<p>{source.description}</p>{source.reference && <p>{source.reference}</p>}</li>)}</ul></details>
+  </details>
 }
 
-const costLabels = [
-  ['reviews', 'Pharmacist intakes / medication reviews'], ['offers', 'Pharmacist recruitment outreach / offers'], ['supportOffers', 'Staff recruitment assistance'],
-  ['onboarding', 'Pharmacist onboarding'], ['supportOnboarding', 'Staff onboarding'],
-  ['pharmacistMonitoring', 'Pharmacist monitoring'], ['technicalSupport', 'Non-pharmacist RPM service'],
-  ['physicianReferrals', 'Usual physician referrals'], ['devices', 'One-time vendor/device package'], ['software', 'RPM technology bundle'],
-  ['connectivity', 'Connectivity'], ['platformBase', 'Common platform base fee'], ['otherFixed', 'Other fixed program costs'], ['addedFixed', 'Added integration fixed costs'],
-]
+const costLabels = STUDY_COST_LABELS
 
 function FinancialResultsTable({ run }) {
   const { baseline, integrated, delta } = run.actual
   const receiptRows = [
-    ['pharmacistHours', 'Pharmacist hours, all tasks', number],
-    ['supportHours', 'Non-pharmacist staff hours, all tasks', number],
+    ...STUDY_HOUR_ROWS.map(([key, label]) => [key, label, number]),
     ['qualifiedMonths', 'Reimbursement-qualified months', number],
     ['qualifiedSetups', 'New setups qualifying once', number],
     ['monthlyRevenue', 'Clinic recurring receipts', money],
@@ -243,8 +232,8 @@ function FinancialResultsTable({ run }) {
   ]
   return <div className="sim-results sim-receipt-results">
     <h3>Modeled receipts and spending</h3><p>Modeled clinic receipts below reflect billing qualification and collection realization. There is no payer-share reduction. Medication cost offsets are excluded from clinic margin, and receipts are not observed collections.</p>
-    <div className="sim-table-wrap"><table><caption className="sr-only">Full-cohort modeled receipts and spending for the budget year</caption><thead><tr><th scope="col">Budget-year measure</th><th scope="col">Current program</th><th scope="col">With MTM</th><th scope="col">Increment</th></tr></thead><tbody>{receiptRows.map(([key, label, format]) => <tr key={key}><th scope="row">{label}</th><td>{format(baseline[key])}</td><td>{format(integrated[key])}</td><td>{format(delta[key])}</td></tr>)}</tbody></table></div>
-    <details className="sim-cost-details"><summary>Where the program spends money</summary><div className="sim-table-wrap"><table><caption className="sr-only">Program cost components; positive increments represent added spending</caption><thead><tr><th scope="col">Cost component</th><th scope="col">Current program</th><th scope="col">With MTM</th><th scope="col">Added cost</th></tr></thead><tbody>{costLabels.map(([key, label]) => <tr key={key}><th scope="row">{label}</th><td>{money(baseline.costBreakdown[key])}</td><td>{money(integrated.costBreakdown[key])}</td><td>{money(integrated.costBreakdown[key] - baseline.costBreakdown[key])}</td></tr>)}</tbody></table></div><p className="sim-footnote">Patient-level contributions exclude fixed costs. These cohort totals include each program’s base and fixed costs once. Shared costs cancel in the increment; only additional resources change the integration result.</p></details>
+    <div className="sim-table-wrap"><table><caption className="sr-only">Full-cohort modeled receipts and spending for the budget year</caption><thead><tr><th scope="col">Budget-year measure</th><th scope="col">Physician-led baseline</th><th scope="col">With MTM</th><th scope="col">Increment</th></tr></thead><tbody>{receiptRows.map(([key, label, format]) => <tr key={key}><th scope="row">{label}</th><td>{format(baseline[key])}</td><td>{format(integrated[key])}</td><td>{format(delta[key])}</td></tr>)}</tbody></table></div>
+    <details className="sim-cost-details"><summary>Where the program spends money</summary><div className="sim-table-wrap"><table><caption className="sr-only">Program cost components; positive increments represent added spending</caption><thead><tr><th scope="col">Cost component</th><th scope="col">Physician-led baseline</th><th scope="col">With MTM</th><th scope="col">Added cost</th></tr></thead><tbody>{costLabels.map(([key, label]) => <tr key={key}><th scope="row">{label}</th><td>{money(baseline.costBreakdown[key])}</td><td>{money(integrated.costBreakdown[key])}</td><td>{money(integrated.costBreakdown[key] - baseline.costBreakdown[key])}</td></tr>)}</tbody></table></div><p className="sim-footnote">Patient-level contributions exclude fixed costs. These cohort totals include each program’s base and fixed costs once. Shared costs cancel in the increment; only additional resources change the integration result.</p></details>
   </div>
 }
 
@@ -293,7 +282,8 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
           <div><span className="sim-eyebrow">STUDY EXPLORER · PATIENT-LEVEL MICROSIMULATION</span><h1>Pharmacist integration <span>in action.</span></h1><p>Follow added pharmacist recruitment, monitoring, medication reductions and clinic financial surplus in an Original Medicare fee-for-service program.</p></div>
           <Link to="/calculator" className="sim-text-link">Shared assumptions & calculator ↗</Link>
         </header>
-        <div className="sim-study-note"><strong>Synthetic study model · no collected patient data.</strong> The current program continues. Each record compares current care with adding pharmacist involvement; the rooms illustrate one integrated workflow. Clinical and financial results depend on the shared assumptions.<span className="sim-applied-context">Original Medicare fee-for-service clinic · Deprescribing: {inputs.clinicalMode === 'none' ? 'zero clinical effects assumed' : inputs.clinicalMode === 'unestimated' ? 'not estimated' : inputs.clinicalMode === 'minor' ? 'MINOR-informed 45-day patient outcome' : 'illustrative assumptions'}</span><span className="sim-applied-context">All clinic RPM collections counted after billing qualification and collection realization · Medication cost offsets excluded from clinic surplus.</span></div>
+        <div className="sim-study-note"><strong>Synthetic study model · no collected patient data.</strong> The current program is physician-led RPM with nurse and medical-assistant support, with no pharmacist. Each synthetic record is evaluated through that baseline and a pathway adding pharmacist involvement. Clinical and financial results depend on the shared assumptions.<span className="sim-applied-context">Original Medicare fee-for-service clinic · Deprescribing: {inputs.clinicalMode === 'none' ? 'zero clinical effects assumed' : inputs.clinicalMode === 'unestimated' ? 'not estimated' : inputs.clinicalMode === 'minor' ? 'MINOR-informed 45-day patient outcome' : 'illustrative assumptions'}</span><span className="sim-applied-context">All clinic RPM collections counted after billing qualification and collection realization · Medication cost offsets excluded from clinic surplus.</span></div>
+        <ClinicPathwaySummary inputs={inputs} />
         <StudyScenarioControls inputs={inputs} applyInputs={applyInputs} setNotice={setNotice} />
         <FinancialAssumptions inputs={inputs} />
 
@@ -316,8 +306,9 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
             <div className="sr-only" role="status" aria-live={playing ? 'off' : 'polite'} aria-atomic="true">{patient.id}. {phaseLabels(inputs)[phase]}. {selectedContent.title}. {selectedContent.fields.map(([label, value]) => `${label}: ${value}.`).join(' ')} {processed} of {inputs.N} patients processed.{complete ? ` Run complete. Additional RPM starts: ${run.actual.delta.newInitiations}.` : ''}</div>
             <div className="sim-step-bar sim-journey-steps"><span>{inspection !== null ? `INSPECTING ${patient.id}` : `PATIENT ${patient.id}`}</span><ol>{phaseLabels(inputs).map((label, index) => <li key={label} className={index === phase ? 'sim-active-step' : ''} aria-current={index === phase ? 'step' : undefined}><b>{index + 1}</b><span>{label}</span></li>)}</ol></div>
             {inspection !== null && <div className="sim-inspection-note">Completed patient · counts are unchanged. <button type="button" onClick={() => dispatch({ type: 'return' })}>Return to playback →</button></div>}
-            <UsualCareContext patient={patient} />
+            <UsualCareContext patient={patient} inputs={inputs} />
             <IntegrationJourney patient={patient} phase={phase} inputs={inputs} />
+            {(phase === LAST_PHASE || inspection !== null) && <PatientTaskLedger patient={patient} />}
             {inspection !== null && <section className="sim-inspection-summary" aria-label="Completed patient journey"><h3>Journey for {patient.id}</h3><dl><div><dt>Review</dt><dd>{reviewStatus(patient, inputs)}</dd></div><div><dt>RPM</dt><dd>{rpmStatus(patient)}</dd></div><div><dt>Monitoring</dt><dd>{number(patient.integrated.activeMonths)} active service months with integration</dd></div><div><dt>{inputs.clinicalMode === 'minor' ? 'Patient-level deprescribing at 45 days' : 'Medication reductions'}</dt><dd>{number(patient.baseline.clinical.actions)} current program → {number(patient.integrated.clinical.actions)} with integration</dd></div></dl></section>}
           </section>
 
