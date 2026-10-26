@@ -1,10 +1,10 @@
 import { createContext, useContext, useState } from 'react'
-import { DEFAULT_INTEGRATION_INPUTS, simulateIntegrationStudy } from '../lib/integrationStudy'
+import { DEFAULT_INTEGRATION_INPUTS, getIntegrationScenarios, simulateIntegrationStudy } from '../lib/integrationStudy'
 
 const IntegrationStudyContext = createContext(null)
 
 export function IntegrationStudyProvider({ children }) {
-  const [run, setRun] = useState(() => simulateIntegrationStudy(DEFAULT_INTEGRATION_INPUTS))
+  const [run, setRun] = useState(() => simulateIntegrationStudy(getIntegrationScenarios(DEFAULT_INTEGRATION_INPUTS).find(scenario => scenario.id === 'healthpartners-minor').inputs))
   const [notice, setNotice] = useState('')
   const applyInputs = next => {
     const nextRun = simulateIntegrationStudy(next)

@@ -124,8 +124,8 @@ test('exports include exact assumptions and reject altered results, patients, in
   assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
   assert.equal(bundle.metadata.priceYear, 2026)
   assert.equal(bundle.metadata.currency, 'USD')
-  assert.equal(bundle.modelVersion, '4.0.0')
-  assert.equal(bundle.schemaVersion, 4)
+  assert.equal(bundle.modelVersion, '5.0.0')
+  assert.equal(bundle.schemaVersion, 5)
   assert.match(integrationExportCsv(bundle), /expected/)
   for (const mutate of [b => { b.inputs.seed++ }, b => { b.expected.delta.programCost++ }, b => { b.patients[0].id = 'other' }, b => { b.metadata.assumptions = [] }, b => { b.extra = 1 }]) { const b = structuredClone(bundle); mutate(b); assert.throws(() => verifyIntegrationExport(b)) }
   assert.equal(getIntegrationScenarios().find(x => x.id === 'conservative').inputs.clinicalMode, 'none')
@@ -212,7 +212,7 @@ test('pharmacist-heavy preset retains workload costs and uses Original Medicare 
   const nyu = getIntegrationScenarios().find(s => s.id === 'nyu-workload')
   near(nyu.inputs.monitorPharmacistMinutes, 58 + 1 / 3); assert.equal(getRpmPaymentSchedule(nyu.inputs).additionalUnits, 1)
 })
-test('version 4 exports retain provenance, clinic boundary and reject old or altered accounting', () => {
+test('version 5 exports retain provenance, clinic boundary and reject old or altered accounting', () => {
   const bundle = createIntegrationExport(simulateIntegrationStudy(p({ N: 20 })))
   assert.ok(bundle.metadata.financialEvidence.every(source => (source.url || source.reference) && source.accessedAt === '2026-10-25'))
   const allocation = bundle.metadata.financialEvidence.find(source => source.id === 'rpm-task-allocation')
@@ -378,5 +378,154 @@ test('unknown clinical outcomes never suppress clinic surplus in patient histori
       }
     })
     assert.deepEqual(verifyIntegrationExport(createIntegrationExport(run)).inputs, run.inputs)
+  }
+})
+
+test('HealthPartners stages use their study denominators without legacy review/offer multipliers', () => {
+  const hp = p({ N: 1000, recruitmentMode: 'healthpartners', existingRpmShare: 0, r: 0, f: .5, c: 0, o: 0, qB: 0, clinicalMode: 'none' })
+  const e = expectedIntegrationStudy(hp)
+  near(e.integrated.outreachContacts, 500)
+  near(e.integrated.intakeAttendees, 500 * 385 / 1423)
+  near(e.integrated.reviews, e.integrated.intakeAttendees)
+  near(e.integrated.offers, e.integrated.intakeAttendees)
+  near(e.integrated.newInitiations, 500 * 385 / 1423 * .8)
+  assert.deepEqual(expectedIntegrationStudy({ ...hp, c: 1, o: 1, qB: 1, reviewMinutes: 240 }), e)
+})
+
+test('HealthPartners costs every targeted outreach and every attended intake, including nonactivators', () => {
+  const hp = p({ N: 10, recruitmentMode: 'healthpartners', existingRpmShare: 0, r: 0, f: 1, intakeAttendance: .5, activationAfterIntake: 0, intakeMinutes: 60, ...zeroCosts, pharmacistWage: 60, supportWage: 30, offerMinutes: 1, offerSupportMinutes: 4, reviewMinutes: 240, clinicalMode: 'none' })
+  const e = expectedIntegrationStudy(hp)
+  near(e.integrated.newInitiations, 0); near(e.integrated.reviews, 5)
+  near(e.integrated.costBreakdown.reviews, 300)
+  near(e.integrated.costBreakdown.offers, 10); near(e.integrated.costBreakdown.supportOffers, 20)
+  near(e.integrated.programCost, 330)
+  near(e.integrated.pharmacistHours * 60, 310)
+  near(e.integrated.supportHours * 60, 40)
+  const noAttendees = expectedIntegrationStudy({ ...hp, intakeAttendance: 0 })
+  near(noAttendees.integrated.programCost, 30)
+})
+
+test('HealthPartners additional starts include intake education once and preserve usual onboarding', () => {
+  const hp = p({ N: 1, recruitmentMode: 'healthpartners', existingRpmShare: 0, r: 0, f: 1, intakeAttendance: 1, activationAfterIntake: 1, intakeMinutes: 60, monthlyRetention: 1, startMonth: 12, setupQualificationShare: 1, ...zeroCosts, pharmacistWage: 60, supportWage: 30, deviceCost: 90 })
+  for (const result of [expectedIntegrationStudy(hp), simulateIntegrationStudy(hp).actual]) {
+    near(result.integrated.costBreakdown.reviews, 60)
+    near(result.integrated.costBreakdown.onboarding, 0); near(result.integrated.costBreakdown.supportOnboarding, 0)
+    near(result.integrated.costBreakdown.devices, 90); near(result.integrated.qualifiedSetups, 1)
+    near(result.integrated.programCost, result.integrated.pharmacistHours * 60 + result.integrated.supportHours * 30 + 90)
+  }
+  const duplicate = simulateIntegrationStudy({ ...hp, r: 1, qA: 1 })
+  for (const result of [duplicate.expected, duplicate.actual]) {
+    near(result.delta.newInitiations, 0); near(result.integrated.duplicateOffers, 1)
+    near(result.baseline.costBreakdown.onboarding, 2); near(result.integrated.costBreakdown.onboarding, 2)
+    near(result.baseline.costBreakdown.supportOnboarding, 9); near(result.integrated.costBreakdown.supportOnboarding, 9)
+    near(result.delta.setupRevenue, 0); near(result.delta.costBreakdown.devices, 0)
+  }
+})
+
+test('MINOR reports patient-level 45-day outcomes without low-BP multiplication or assumed annual savings', () => {
+  const minor = p({ N: 161, existingRpmShare: 1, monthlyRetention: 1, f: 1, c: 1, clinicalMode: 'minor', minorEligibleShare: 1, minorExtrapolation: 'off', lowBpShare: 0, actionBaseline: null, actionIntegrated: null, persistence12: null, drugCostPerMonth: null })
+  const e = expectedIntegrationStudy(minor)
+  near(e.baseline.clinical.actions, 11); near(e.integrated.clinical.actions, 31); near(e.delta.clinical.actions, 20)
+  assert.deepEqual(expectedIntegrationStudy({ ...minor, lowBpShare: 1 }), e)
+  for (const result of [e, simulateIntegrationStudy(minor).actual]) for (const arm of ['baseline', 'integrated', 'delta']) {
+    assert.equal(result[arm].clinical.sustainedAt12Months, null)
+    assert.equal(result[arm].clinical.medicationMonths, null)
+    assert.equal(result[arm].drugSavings, null)
+    assert.ok(Number.isFinite(result[arm].netFinancialBenefit))
+  }
+  const someReviewed = expectedIntegrationStudy({ ...minor, f: .8, c: .5, minorEligibleShare: .5 })
+  near(someReviewed.baseline.clinical.actions, 5.5)
+  near(someReviewed.integrated.clinical.actions, 9.5)
+  near(expectedIntegrationStudy({ ...minor, minorEligibleShare: 0 }).integrated.clinical.actions, 0)
+})
+
+test('MINOR optional persistence starts after the 45-day assessment and respects the budget boundary', () => {
+  const minor = p({ N: 1, existingRpmShare: 1, monthlyRetention: 1, f: 1, c: 1, clinicalMode: 'minor', minorEligibleShare: 1, minorActionBaseline: 0, minorActionIntegrated: 1, minorExtrapolation: 'assumed', persistence12: 1, drugCostPerMonth: 10 })
+  for (const [startMonth, medicineMonths] of [[1, 10], [9, 2], [11, 0], [12, 0]]) {
+    const run = simulateIntegrationStudy({ ...minor, startMonth })
+    for (const result of [run.expected, run.actual]) {
+      near(result.integrated.clinical.actions, 1)
+      near(result.integrated.clinical.sustainedAt12Months, 1)
+      near(result.integrated.clinical.medicationMonths, medicineMonths)
+      near(result.integrated.drugSavings, medicineMonths * 10)
+    }
+    assert.equal(run.patients[0].integrated.clinicalAssessmentMonth, startMonth + 2)
+    const off = expectedIntegrationStudy({ ...minor, startMonth, minorExtrapolation: 'off' })
+    near(off.delta.netFinancialBenefit, run.expected.delta.netFinancialBenefit)
+  }
+  const unknownPersistence = expectedIntegrationStudy({ ...minor, persistence12: null })
+  near(unknownPersistence.integrated.clinical.actions, 1)
+  assert.equal(unknownPersistence.integrated.clinical.sustainedAt12Months, null)
+  const unknownDrugCost = expectedIntegrationStudy({ ...minor, drugCostPerMonth: null })
+  near(unknownDrugCost.integrated.clinical.sustainedAt12Months, 1)
+  assert.equal(unknownDrugCost.integrated.drugSavings, null)
+})
+
+test('HealthPartners plus MINOR paired simulations converge to analytic counts and surplus', () => {
+  const inputs = { ...getIntegrationScenarios().find(s => s.id === 'healthpartners-minor').inputs, N: 300, recontactUptake: .2 }
+  const expected = expectedIntegrationStudy(inputs)
+  const read = row => [row.integrated.intakeAttendees, row.integrated.newInitiations, row.delta.netFinancialBenefit, row.integrated.clinical.actions, row.delta.clinical.actions]
+  const targets = read(expected); const values = targets.map(() => [])
+  for (let seed = 0; seed < 100; seed++) {
+    const run = simulateIntegrationStudy({ ...inputs, seed })
+    read(run.actual).forEach((value, i) => values[i].push(value))
+    assert.ok(run.patients.every(patient => !patient.baseline.participating || patient.integrated.participating))
+    assert.equal(run.actual.delta.newInitiations, run.patients.filter(patient => patient.additionalInitiation).length)
+  }
+  values.forEach((sample, i) => {
+    const mean = sample.reduce((sum, value) => sum + value, 0) / sample.length
+    const variance = sample.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (sample.length - 1)
+    near(mean, targets[i], 6 * Math.sqrt(variance / sample.length) + 1e-7)
+  })
+})
+
+test('HealthPartners no-added-recruitment retains work and threshold varies intake attendance', () => {
+  const inputs = getIntegrationScenarios().find(s => s.id === 'healthpartners-minor').inputs
+  const noRecruitment = getIntegrationScenarios({ ...inputs, recontactUptake: .8 }).find(s => s.id === 'no-added-recruitment').inputs
+  const result = expectedIntegrationStudy(noRecruitment)
+  near(result.delta.newInitiations, 0)
+  near(result.integrated.intakeAttendees, expectedIntegrationStudy(inputs).integrated.intakeAttendees)
+  assert.ok(result.delta.programCost > 0)
+  const thresholdInputs = p({ N: 10, recruitmentMode: 'healthpartners', existingRpmShare: 0, r: 0, f: 1, activationAfterIntake: 1, intakeMinutes: 60, startMonth: 12, ...zeroCosts, pharmacistWage: 60, offerMinutes: 0, offerSupportMinutes: 0, monitorPharmacistMinutes: 0, monitorSupportMinutes: 0, qualifiedSupportMinutes: 0, addedFixedCost: 200, reimbursementMode: 'custom', monthlyRevenueBenchmark: 100, setupQualificationShare: 0, qualificationShare: 1, collectionShare: 1 })
+  const threshold = findOfferThreshold(thresholdInputs)
+  assert.equal(threshold.parameter, 'intakeAttendance'); assert.equal(threshold.label, 'Completed pharmacist intake')
+  near(threshold.rate, .5, 1e-6)
+})
+
+test('study presets restore cited numbers and version 5 exports record stages, endpoints and extrapolation', () => {
+  const changed = p({ intakeAttendance: .9, activationAfterIntake: .1, intakeMinutes: 5, minorActionBaseline: .5, minorActionIntegrated: .9, minorEligibleShare: .5, minorExtrapolation: 'assumed' })
+  const preset = getIntegrationScenarios(changed).find(s => s.id === 'healthpartners-minor').inputs
+  near(preset.intakeAttendance, 385 / 1423); near(preset.activationAfterIntake, .8); near(preset.intakeMinutes, 60)
+  near(preset.minorActionBaseline, 11 / 161); near(preset.minorActionIntegrated, 31 / 161)
+  near(preset.minorEligibleShare, 1); assert.equal(preset.minorExtrapolation, 'off')
+  const bundle = createIntegrationExport(simulateIntegrationStudy({ ...preset, N: 40 }))
+  assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
+  assert.equal(bundle.metadata.recruitmentEvidence[0].intakeDenominator, 1423)
+  assert.equal(bundle.metadata.clinicalEvidence[0].endpointDays, 45)
+  assert.ok(bundle.metadata.evidence.minorActionIntegrated.sources.includes('https://www.sciencedirect.com/science/article/pii/S0149291823002035'))
+  assert.match(integrationExportCsv(bundle), /intakeAttendees/)
+  assert.match(integrationExportCsv(bundle), /minorExtrapolation/)
+  assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 4, modelVersion: '4.0.0' }), /Version 4.0.0.*cannot be replayed/)
+  for (const key of ['intakeAttendance', 'activationAfterIntake', 'minorEligibleShare', 'minorActionIntegrated']) assert.throws(() => simulateIntegrationStudy({ ...preset, [key]: 1.1 }), RangeError)
+  assert.throws(() => simulateIntegrationStudy({ ...preset, minorExtrapolation: 'yes' }), RangeError)
+})
+
+
+test('isolated study presets restore intended modules while preserving clinic and financial assumptions', () => {
+  const inputs = p({ recruitmentMode: 'healthpartners', clinicalMode: 'minor', intakeAttendance: .9, activationAfterIntake: .1, intakeMinutes: 5, c: .1, o: .2, qB: .3, minorActionBaseline: .5, minorActionIntegrated: .9, minorEligibleShare: .5, minorExtrapolation: 'assumed', f: .7, collectionShare: .83, deviceCost: 120, pharmacistWage: 105 })
+  const presets = getIntegrationScenarios(inputs)
+  const hp = presets.find(s => s.id === 'healthpartners').inputs
+  assert.equal(hp.recruitmentMode, 'healthpartners'); assert.equal(hp.clinicalMode, 'unestimated')
+  near(hp.intakeAttendance, 385 / 1423); near(hp.activationAfterIntake, .8); near(hp.intakeMinutes, 60)
+  const minor = presets.find(s => s.id === 'minor').inputs
+  assert.equal(minor.recruitmentMode, 'mtm-offer'); assert.equal(minor.clinicalMode, 'minor'); assert.equal(minor.minorExtrapolation, 'off')
+  near(minor.c, defaults.c); near(minor.o, defaults.o); near(minor.qB, defaults.qB)
+  near(minor.minorActionBaseline, 11 / 161); near(minor.minorActionIntegrated, 31 / 161)
+  const extension = presets.find(s => s.id === 'minor-extension').inputs
+  assert.equal(extension.recruitmentMode, 'healthpartners'); assert.equal(extension.clinicalMode, 'minor'); assert.equal(extension.minorExtrapolation, 'assumed')
+  near(extension.intakeAttendance, 385 / 1423); near(extension.activationAfterIntake, .8); near(extension.intakeMinutes, 60)
+  near(extension.minorActionBaseline, 11 / 161); near(extension.minorActionIntegrated, 31 / 161); near(extension.persistence12, .694)
+  for (const preset of [hp, minor, extension]) {
+    near(preset.f, .7); near(preset.collectionShare, .83); near(preset.deviceCost, 120); near(preset.pharmacistWage, 105)
   }
 })

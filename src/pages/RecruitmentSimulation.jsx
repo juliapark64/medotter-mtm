@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useIntegrationStudy } from '../context/IntegrationStudyContext'
-import { FINANCIAL_EVIDENCE, getRpmPaymentSchedule } from '../lib/integrationStudy'
+import { FINANCIAL_EVIDENCE, getIntegrationScenarios, getRpmPaymentSchedule } from '../lib/integrationStudy'
 import rooms from '../assets/simulation/physician-pharmacy-rooms.png'
 import patientSprite from '../assets/simulation/synthetic-patient.png'
 import '../styles/recruitmentSimulation.css'
 
-const phaseLabels = ['MTM review', 'RPM offer & start', 'Monitoring', 'Medication reduction', 'Financial result']
-const LAST_PHASE = phaseLabels.length - 1
+const phaseLabels = inputs => [inputs.recruitmentMode === 'healthpartners' ? 'Pharmacist intake' : 'MTM review', inputs.recruitmentMode === 'healthpartners' ? 'First transmission' : 'RPM offer & start', 'Monitoring', inputs.clinicalMode === 'minor' ? '45-day deprescribing' : 'Medication reduction', 'Financial result']
+const LAST_PHASE = 4
 const initialPlayback = { cursor: 0, phase: 0, processed: 0, playing: false, inspection: null }
 function playbackReducer(state, action) {
   switch (action.type) {
@@ -44,7 +44,11 @@ function rpmStatus(patient) {
   return 'No RPM initiation'
 }
 
-function reviewStatus(patient) {
+function reviewStatus(patient, inputs) {
+  if (inputs.recruitmentMode === 'healthpartners') {
+    if (!patient.pharmacist.inReviewPopulation) return 'Not targeted for pharmacist intake'
+    return patient.pharmacist.reviewCompleted ? 'Pharmacist intake attended' : 'Outreach made; intake not attended'
+  }
   if (!patient.pharmacist.inReviewPopulation) return 'Outside the MTM review population'
   return patient.pharmacist.reviewCompleted ? 'MTM review completed' : 'MTM review not completed'
 }
@@ -66,16 +70,16 @@ function phaseContent(patient, phase, inputs) {
   const b = patient.integrated
   switch (phase) {
     case 0: return {
-      title: reviewStatus(patient),
-      note: 'The modeled MTM review can support recruitment or medication assessment for someone already receiving RPM.',
+      title: reviewStatus(patient, inputs),
+      note: inputs.recruitmentMode === 'healthpartners' ? `HealthPartners reported 385/1,423 attending intake within six weeks. This scenario assumes ${percent(inputs.intakeAttendance)} attendance among the ${percent(inputs.f)} targeted share. Each targeted patient incurs outreach work; each attendee incurs ${number(inputs.intakeMinutes)} pharmacist minutes even if no RPM activation follows. The one-hour protocol appointment is a workload assumption, not an observed mean.` : 'The modeled MTM review can support recruitment or medication assessment for someone already receiving RPM.',
       fields: [
-        ['In the review population', yesNo(patient.pharmacist.inReviewPopulation)],
-        ['Review completed', yesNo(patient.pharmacist.reviewCompleted)],
+        [inputs.recruitmentMode === 'healthpartners' ? 'Targeted for intake outreach' : 'In the review population', yesNo(patient.pharmacist.inReviewPopulation)],
+        [inputs.recruitmentMode === 'healthpartners' ? 'Pharmacist intake attended' : 'Review completed', yesNo(patient.pharmacist.reviewCompleted)],
       ],
     }
     case 1: return {
       title: rpmStatus(patient),
-      note: 'A new start requires a first transmitted BP reading. A referral or an offer alone does not count as initiation.',
+      note: inputs.recruitmentMode === 'healthpartners' ? `A first transmitted BP reading defines activation. The applied probability after completed intake is ${percent(inputs.activationAfterIntake)}; the study reference is 80%. Attendance alone does not count as RPM initiation. Existing participants and overlapping physician contacts do not create a second episode. Recontact after a failed physician referral follows its separate assumption.` : 'A new start requires a first transmitted BP reading. A referral or an offer alone does not count as initiation.',
       fields: [
         ['Pharmacist RPM offer', offerStatus(patient)],
         ['Additional RPM start', yesNo(patient.additionalInitiation)],
@@ -96,18 +100,20 @@ function phaseContent(patient, phase, inputs) {
       ],
     }
     case 3: return {
-      title: clinicalMode === 'none' ? 'Medication benefits excluded in this scenario' : known(b.clinical.actions) ? 'Medication reductions under the applied assumptions' : 'Medication reduction is not yet estimated',
+      title: clinicalMode === 'none' ? 'Medication benefits excluded in this scenario' : known(b.clinical.actions) ? clinicalMode === 'minor' ? 'Modeled patient-level deprescribing at 45 days' : 'Medication reductions under the applied assumptions' : 'Medication reduction is not yet estimated',
       note: clinicalMode === 'none'
         ? 'This conservative scenario explicitly sets medication reductions and drug savings to zero in both programs. This is a modeling assumption, not a finding about deprescribing effectiveness.'
+        : clinicalMode === 'minor' && known(b.clinical.actions)
+        ? `MINOR reference: 11/161 usual monitoring/review versus 31/161 with pharmacist management. The applied comparable-population share is ${percent(inputs.minorEligibleShare)}; no low-BP multiplier is applied. This synthetic outcome does not establish exactly one medication stopped. ${inputs.minorExtrapolation === 'assumed' ? 'Persistence and one-medicine-equivalent savings are an optional extrapolation starting at the 45-day assessment (approximated as two months after intake), not trial results.' : 'Long-term persistence and medication savings are not estimated.'}`
         : known(b.clinical.actions)
         ? 'Synthetic medication events use the applied scenario assumptions. Persistence is assessed 12 months after reduction and can extend beyond the first-year budget.'
         : 'The clinical inputs are unspecified. This patient is not assigned an invented reduction or an observed clinical benefit.',
       fields: [
         ['With MTM · active at the modeled assessment', yesNo(b.activeAtAssessment)],
-        ['Current program · medication reductions', number(a.clinical.actions)],
-        ['With MTM · medication reductions', number(b.clinical.actions)],
-        ['With MTM · maintained 12 months after reduction', number(b.clinical.sustainedAt12Months)],
-        ['With MTM · reduced-medication months in budget year', number(b.clinical.medicationMonths)],
+        [clinicalMode === 'minor' ? 'Current program · patient with deprescribing at 45 days' : 'Current program · medication reductions', number(a.clinical.actions)],
+        [clinicalMode === 'minor' ? 'With integration · patient with deprescribing at 45 days' : 'With MTM · medication reductions', number(b.clinical.actions)],
+        [clinicalMode === 'minor' ? 'Extrapolated maintenance 12 months after assessment' : 'With MTM · maintained 12 months after reduction', number(b.clinical.sustainedAt12Months)],
+        ['Assumed reduced-medication months in budget year', number(b.clinical.medicationMonths)],
       ],
     }
     default: return {
@@ -156,10 +162,10 @@ function IntegrationJourney({ patient, phase, inputs }) {
         <div className={`sim-character ${phase > 0 && patient.pharmacist.reviewCompleted ? 'sim-at-encounter' : ''}`} key={patient.id}>
           <span>{patient.id}</span><img src={patientSprite} alt="" />
         </div>
-        <span className="sim-scene-caption">{phaseLabels[phase]} · {phase === 0 ? reviewStatus(patient) : phase === 1 ? rpmStatus(patient) : phase === 2 ? `${number(patient.integrated.activeMonths)} active service months` : phase === 3 ? 'Scenario-based medication assessment' : 'Incremental financial result'}</span>
+        <span className="sim-scene-caption">{phaseLabels(inputs)[phase]} · {phase === 0 ? reviewStatus(patient, inputs) : phase === 1 ? rpmStatus(patient) : phase === 2 ? `${number(patient.integrated.activeMonths)} active service months` : phase === 3 ? 'Scenario-based medication assessment' : 'Incremental financial result'}</span>
       </div>
       <section className="sim-phase-content" aria-labelledby="sim-phase-title">
-        <span className="sim-eyebrow">STEP {phase + 1} OF {phaseLabels.length}</span>
+        <span className="sim-eyebrow">STEP {phase + 1} OF {phaseLabels(inputs).length}</span>
         <h3 id="sim-phase-title">{content.title}</h3>
         <p>{content.note}</p>
         <dl className="sim-phase-fields">{content.fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
@@ -178,6 +184,22 @@ function summarizeProcessed(patients) {
   }, { addedStarts: 0, addedMonths: 0, addedReductions: 0 })
 }
 
+function StudyScenarioControls({ inputs, applyInputs, setNotice }) {
+  const scenarios = getIntegrationScenarios(inputs).filter(scenario => ['healthpartners-minor', 'healthpartners', 'minor', 'minor-extension', 'no-added-recruitment', 'conservative'].includes(scenario.id))
+  return <section className="sim-card sim-study-evidence" aria-label="Study scenarios and sources">
+    <label htmlFor="sim-study-scenario">Load a shared study scenario</label>
+    <select id="sim-study-scenario" value="" onChange={event => {
+      const scenario = scenarios.find(item => item.id === event.target.value)
+      if (scenario) { applyInputs(scenario.inputs); setNotice(`${scenario.name} applied to the calculator and microsimulation. Playback restarts with the same seed.`) }
+    }}><option value="" disabled>Choose HealthPartners, MINOR, or a sensitivity…</option>{scenarios.map(scenario => <option value={scenario.id} key={scenario.id}>{scenario.name}</option>)}</select>
+    <div className="sim-evidence-columns">
+      <div><h3>{inputs.recruitmentMode === 'healthpartners' ? 'HealthPartners-informed recruitment · active' : 'HealthPartners recruitment reference'}</h3><p><strong>27.1% attended intake; 80% of attendees sent a BP reading.</strong> HyperLink 3 observed 385/1,423 intake attendees within six weeks. The offered one-hour appointment informs the workload assumption. Applying this workflow to Original Medicare, the targeted share and overlapping physician contacts is a transfer.</p>{inputs.recruitmentMode === 'healthpartners' && <p>Applied: {percent(inputs.f)} targeted; {percent(inputs.intakeAttendance)} attend; {percent(inputs.activationAfterIntake)} activate after intake; {number(inputs.intakeMinutes)} pharmacist minutes per attendee. Outreach is costed even for nonattendees.</p>}<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9649877/" target="_blank" rel="noreferrer">Read HealthPartners HyperLink 3 ↗</a></div>
+      <div><h3>{inputs.clinicalMode === 'minor' ? 'MINOR 45-day outcome · active' : 'MINOR deprescribing reference'}</h3><p><strong>19.3% with pharmacist management versus 6.8% with usual review.</strong> The trial reported 31/161 versus 11/161 patients receiving antihypertensive deprescribing at 45 days. Both groups had home monitoring. These are all-participant rates, not probabilities conditional on low BP.</p>{inputs.clinicalMode === 'minor' && <p>Applied: {percent(inputs.minorActionIntegrated)} versus {percent(inputs.minorActionBaseline)} in the assumed {percent(inputs.minorEligibleShare)} comparable share. {inputs.minorExtrapolation === 'assumed' ? 'Long-term persistence and medicine-equivalent costs are explicitly extrapolated.' : 'Persistence and medication savings are not estimated.'}</p>}<a href="https://www.sciencedirect.com/science/article/pii/S0149291823002035" target="_blank" rel="noreferrer">Read the MINOR trial ↗</a></div>
+    </div>
+    <p className="sim-footnote">The studies have different populations and workflows; the combined scenario is not a jointly tested intervention. Eligibility, timing, retention, recruitment overlap, billing qualification and collections remain assumptions. Current publisher/table MINOR counts use 11 controls; an older indexed abstract reports 9 (5.6%). The model does not turn synthetic outcomes into clinical evidence.</p>
+  </section>
+}
+
 function FinancialAssumptions({ inputs }) {
   const payment = getRpmPaymentSchedule(inputs)
   return (
@@ -188,18 +210,18 @@ function FinancialAssumptions({ inputs }) {
         <section><h3>Receipts remain conditional</h3><p>Applied planning assumptions: <b>{percent(inputs.qualificationShare)}</b> of active months and <b>{percent(inputs.setupQualificationShare)}</b> of new setups qualify. All-in collection realization: <b>{percent(inputs.collectionShare)}</b>. These percentages are not observed Medicare rates.</p><p>All clinic collections count, with no 50% payer-share reduction. Collections include payer and patient receipts against the total allowed amount; do not apply an additional 80% factor. Fee benchmarks do not guarantee payment.</p></section>
         <section><h3>Work is shared across the team</h3><p><b>{number(inputs.monitorPharmacistMinutes)} pharmacist minutes</b> and <b>{number(inputs.monitorSupportMinutes)} staff minutes</b> per active month, at loaded hourly costs of {money(inputs.pharmacistWage)} and {money(inputs.supportWage)}.</p><p>Recurring labor: <b>{money((inputs.monitorPharmacistMinutes * inputs.pharmacistWage + inputs.monitorSupportMinutes * inputs.supportWage) / 60)}</b> per active month. Clinical time = {number(inputs.monitorPharmacistMinutes)} pharmacist + {number(inputs.qualifiedSupportMinutes)} qualifying supervised staff minutes. The other {number(inputs.monitorSupportMinutes - inputs.qualifiedSupportMinutes)} staff minutes are excluded from the threshold; no minute is charged twice.</p></section>
       </div>
-      <p className="sim-finance-assumption-note">The default “90% technician / 10% pharmacist RPM task allocation” assumes a 9:1 technician-to-pharmacist time ratio for routine RPM service, offers and onboarding. This is a workflow assumption inspired by the cashbook, not a total-program staffing or headcount ratio: added medication reviews remain pharmacist work. The applied minutes above reflect any edits. Default loaded wages use published BLS national means plus the healthcare compensation ratio once, approximately $96.29/hour for pharmacists and $31.85/hour for pharmacy technicians. The technician wage is a general occupational proxy, not a measured advanced-technician rate. Cashbook wages are excluded. Staff clinical eligibility remains an explicit assumption.</p>
-      <p className="sim-finance-assumption-note">Each offer uses {number(inputs.offerMinutes)} pharmacist + {number(inputs.offerSupportMinutes)} staff minutes; each new start uses {number(inputs.onboardingMinutes)} pharmacist + {number(inputs.onboardingSupportMinutes)} staff onboarding minutes. Medication review and deprescribing follow-up remain {number(inputs.reviewMinutes)} pharmacist minutes per completed review. Staff hours include these tasks as well as monthly service. Valued labor is a resource cost, not a prediction of immediate payroll savings.</p>
-      <p className="sim-finance-assumption-note">Applied technology costs: {money(inputs.deviceCost)} one-time vendor/device package per new start, {money(inputs.monthlyTechnologyCost)} technology bundle + {money(inputs.monthlyConnectivityCost)} separate connectivity per active patient-month, and {money(inputs.monthlyPlatformBaseCost)} platform base fee per provider-month × {number(inputs.platformProviderCount)} provider(s). The default cashbook package assumes device, software and cellular connectivity are included in its $90 one-time and $12 monthly charges; separate connectivity and base fees are zero. In-house onboarding labor is separate. Avoid adding fees for components already included. Any common base fee is counted once in each program.</p>
+      <p className="sim-finance-assumption-note">Routine RPM service starts from a 90% technician / 10% pharmacist time allocation. Outreach and usual-care onboarding retain this assumed ratio; pharmacist intake is separately costed. This is a workflow assumption inspired by the cashbook, not a total-program staffing or headcount ratio: added medication reviews remain pharmacist work. The applied minutes above reflect any edits. Default loaded wages use published BLS national means plus the healthcare compensation ratio once, approximately $96.29/hour for pharmacists and $31.85/hour for pharmacy technicians. The technician wage is a general occupational proxy, not a measured advanced-technician rate. Cashbook wages are excluded. Staff clinical eligibility remains an explicit assumption.</p>
+      <p className="sim-finance-assumption-note">{inputs.recruitmentMode === 'healthpartners' ? `Each targeted patient incurs ${number(inputs.offerMinutes)} pharmacist + ${number(inputs.offerSupportMinutes)} staff outreach minutes, even if intake is not attended. Each attendee incurs ${number(inputs.intakeMinutes)} pharmacist minutes even without RPM activation. This protocol-based workload replaces the separate review bundle and includes clinic device education; additional intake-driven starts are not charged a second clinic onboarding bundle. Usual-care initiators retain their onboarding costs.` : `Each offer uses ${number(inputs.offerMinutes)} pharmacist + ${number(inputs.offerSupportMinutes)} staff minutes; each new start uses ${number(inputs.onboardingMinutes)} pharmacist + ${number(inputs.onboardingSupportMinutes)} staff onboarding minutes. Medication review and follow-up remain ${number(inputs.reviewMinutes)} pharmacist minutes per completed review.`} Staff hours include these tasks as well as monthly service. Valued labor is a resource cost, not a prediction of immediate payroll savings.</p>
+      <p className="sim-finance-assumption-note">Applied technology costs: {money(inputs.deviceCost)} one-time vendor/device package per new start, {money(inputs.monthlyTechnologyCost)} technology bundle + {money(inputs.monthlyConnectivityCost)} separate connectivity per active patient-month, and {money(inputs.monthlyPlatformBaseCost)} platform base fee per provider-month × {number(inputs.platformProviderCount)} provider(s). The default cashbook package assumes device, software and cellular connectivity are included in its $90 one-time and $12 monthly charges; separate connectivity and base fees are zero. Usual-care onboarding is separate; intake-driven starts already include device education in the intake workload. Avoid adding fees for components already included. Any common base fee is counted once in each program.</p>
       {payment.notes?.length > 0 && <ul className="sim-payment-notes">{payment.notes.map(note => <li key={note}>{note}</li>)}</ul>}
-      <p className="sim-finance-assumption-note">Medication effects are {inputs.clinicalMode === 'illustrative' ? 'illustrative scenario assumptions, not measured benefits' : inputs.clinicalMode === 'none' ? 'set to zero by assumption' : 'not estimated'}. Medication cost offsets are separate from clinic financial surplus. Unknown clinical effects do not prevent calculation of clinic collections minus program costs. <Link to="/calculator">Review or change the shared assumptions →</Link></p>
+      <p className="sim-finance-assumption-note">Medication effects are {inputs.clinicalMode === 'minor' ? 'transferred 45-day patient outcomes from MINOR; long-term persistence is separately specified' : inputs.clinicalMode === 'illustrative' ? 'illustrative scenario assumptions, not measured benefits' : inputs.clinicalMode === 'none' ? 'set to zero by assumption' : 'not estimated'}. Medication cost offsets are separate from clinic financial surplus. Unknown clinical effects do not prevent calculation of clinic collections minus program costs. <Link to="/calculator">Review or change the shared assumptions →</Link></p>
       <details className="sim-finance-sources"><summary>Financial sources and limitations</summary><ul>{FINANCIAL_EVIDENCE.map(source => <li key={source.id}>{source.url ? <a href={source.url} target="_blank" rel="noreferrer">{source.title} ↗</a> : <strong>{source.title}</strong>}<p>{source.description}</p>{source.reference && <p>{source.reference}</p>}</li>)}</ul></details>
     </details>
   )
 }
 
 const costLabels = [
-  ['reviews', 'Added pharmacist MTM reviews'], ['offers', 'Pharmacist RPM offers'], ['supportOffers', 'Staff recruitment assistance'],
+  ['reviews', 'Pharmacist intakes / medication reviews'], ['offers', 'Pharmacist recruitment outreach / offers'], ['supportOffers', 'Staff recruitment assistance'],
   ['onboarding', 'Pharmacist onboarding'], ['supportOnboarding', 'Staff onboarding'],
   ['pharmacistMonitoring', 'Pharmacist monitoring'], ['technicalSupport', 'Non-pharmacist RPM service'],
   ['physicianReferrals', 'Usual physician referrals'], ['devices', 'One-time vendor/device package'], ['software', 'RPM technology bundle'],
@@ -271,7 +293,8 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
           <div><span className="sim-eyebrow">STUDY EXPLORER · PATIENT-LEVEL MICROSIMULATION</span><h1>Pharmacist integration <span>in action.</span></h1><p>Follow added pharmacist recruitment, monitoring, medication reductions and clinic financial surplus in an Original Medicare fee-for-service program.</p></div>
           <Link to="/calculator" className="sim-text-link">Shared assumptions & calculator ↗</Link>
         </header>
-        <div className="sim-study-note"><strong>Synthetic study model · no collected patient data.</strong> The current program continues. Each record compares current care with adding pharmacist involvement; the rooms illustrate one integrated workflow. Clinical and financial results depend on the shared assumptions.<span className="sim-applied-context">Original Medicare fee-for-service clinic · Deprescribing: {inputs.clinicalMode === 'none' ? 'zero clinical effects assumed' : inputs.clinicalMode === 'unestimated' ? 'not estimated' : 'illustrative assumptions'}</span><span className="sim-applied-context">All clinic RPM collections counted after billing qualification and collection realization · Medication cost offsets excluded from clinic surplus.</span></div>
+        <div className="sim-study-note"><strong>Synthetic study model · no collected patient data.</strong> The current program continues. Each record compares current care with adding pharmacist involvement; the rooms illustrate one integrated workflow. Clinical and financial results depend on the shared assumptions.<span className="sim-applied-context">Original Medicare fee-for-service clinic · Deprescribing: {inputs.clinicalMode === 'none' ? 'zero clinical effects assumed' : inputs.clinicalMode === 'unestimated' ? 'not estimated' : inputs.clinicalMode === 'minor' ? 'MINOR-informed 45-day patient outcome' : 'illustrative assumptions'}</span><span className="sim-applied-context">All clinic RPM collections counted after billing qualification and collection realization · Medication cost offsets excluded from clinic surplus.</span></div>
+        <StudyScenarioControls inputs={inputs} applyInputs={applyInputs} setNotice={setNotice} />
         <FinancialAssumptions inputs={inputs} />
 
         <section className="sim-toolbar" aria-label="Simulation playback">
@@ -290,12 +313,12 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
 
         <div className="sim-workspace">
           <section className="sim-theater" aria-label="Pharmacist integration journey">
-            <div className="sr-only" role="status" aria-live={playing ? 'off' : 'polite'} aria-atomic="true">{patient.id}. {phaseLabels[phase]}. {selectedContent.title}. {selectedContent.fields.map(([label, value]) => `${label}: ${value}.`).join(' ')} {processed} of {inputs.N} patients processed.{complete ? ` Run complete. Additional RPM starts: ${run.actual.delta.newInitiations}.` : ''}</div>
-            <div className="sim-step-bar sim-journey-steps"><span>{inspection !== null ? `INSPECTING ${patient.id}` : `PATIENT ${patient.id}`}</span><ol>{phaseLabels.map((label, index) => <li key={label} className={index === phase ? 'sim-active-step' : ''} aria-current={index === phase ? 'step' : undefined}><b>{index + 1}</b><span>{label}</span></li>)}</ol></div>
+            <div className="sr-only" role="status" aria-live={playing ? 'off' : 'polite'} aria-atomic="true">{patient.id}. {phaseLabels(inputs)[phase]}. {selectedContent.title}. {selectedContent.fields.map(([label, value]) => `${label}: ${value}.`).join(' ')} {processed} of {inputs.N} patients processed.{complete ? ` Run complete. Additional RPM starts: ${run.actual.delta.newInitiations}.` : ''}</div>
+            <div className="sim-step-bar sim-journey-steps"><span>{inspection !== null ? `INSPECTING ${patient.id}` : `PATIENT ${patient.id}`}</span><ol>{phaseLabels(inputs).map((label, index) => <li key={label} className={index === phase ? 'sim-active-step' : ''} aria-current={index === phase ? 'step' : undefined}><b>{index + 1}</b><span>{label}</span></li>)}</ol></div>
             {inspection !== null && <div className="sim-inspection-note">Completed patient · counts are unchanged. <button type="button" onClick={() => dispatch({ type: 'return' })}>Return to playback →</button></div>}
             <UsualCareContext patient={patient} />
             <IntegrationJourney patient={patient} phase={phase} inputs={inputs} />
-            {inspection !== null && <section className="sim-inspection-summary" aria-label="Completed patient journey"><h3>Journey for {patient.id}</h3><dl><div><dt>Review</dt><dd>{reviewStatus(patient)}</dd></div><div><dt>RPM</dt><dd>{rpmStatus(patient)}</dd></div><div><dt>Monitoring</dt><dd>{number(patient.integrated.activeMonths)} active service months with integration</dd></div><div><dt>Medication reductions</dt><dd>{number(patient.baseline.clinical.actions)} current program → {number(patient.integrated.clinical.actions)} with integration</dd></div></dl></section>}
+            {inspection !== null && <section className="sim-inspection-summary" aria-label="Completed patient journey"><h3>Journey for {patient.id}</h3><dl><div><dt>Review</dt><dd>{reviewStatus(patient, inputs)}</dd></div><div><dt>RPM</dt><dd>{rpmStatus(patient)}</dd></div><div><dt>Monitoring</dt><dd>{number(patient.integrated.activeMonths)} active service months with integration</dd></div><div><dt>{inputs.clinicalMode === 'minor' ? 'Patient-level deprescribing at 45 days' : 'Medication reductions'}</dt><dd>{number(patient.baseline.clinical.actions)} current program → {number(patient.integrated.clinical.actions)} with integration</dd></div></dl></section>}
           </section>
 
           <aside className="sim-cohort-panel" aria-label="Synthetic patient cohort">
@@ -308,7 +331,7 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
             })}</ol>
             <p className="sim-register-help">Select a completed ID to inspect its full journey. Inspection does not add the patient to the totals again.</p>
             <form className="sim-inspect-form" onSubmit={inspectPatient}><label htmlFor="inspect-patient">Find a completed patient</label><div><input id="inspect-patient" placeholder="e.g. S0001" value={inspectId} onChange={event => setInspectId(event.target.value)} /><button className="sim-button" disabled={!processed}>View</button></div></form>
-            <div className="sim-running-counts"><span className="sim-eyebrow">{complete ? 'COMPLETE RUN · INCREMENTAL COUNTS' : 'PROCESSED PATIENTS ONLY'}</span><div><span>Additional RPM starts</span><strong>{number(visibleSummary.addedStarts)}</strong></div><div><span>Additional service months</span><strong>{signed(visibleSummary.addedMonths)}</strong></div><div><span>Additional medication reductions</span><strong className={!known(visibleSummary.addedReductions) ? 'sim-not-estimated' : ''}>{processed ? signed(visibleSummary.addedReductions) : '—'}</strong></div><small>{complete ? 'One synthetic realization. Additional outcomes are relative to the continuing current program.' : 'These are partial counts, not full-cohort annual rates. Financial totals include fixed costs only in the completed run.'}</small></div>
+            <div className="sim-running-counts"><span className="sim-eyebrow">{complete ? 'COMPLETE RUN · INCREMENTAL COUNTS' : 'PROCESSED PATIENTS ONLY'}</span><div><span>Additional RPM starts</span><strong>{number(visibleSummary.addedStarts)}</strong></div><div><span>Additional service months</span><strong>{signed(visibleSummary.addedMonths)}</strong></div><div><span>{inputs.clinicalMode === 'minor' ? 'Additional patients with deprescribing at 45 days' : 'Additional medication reductions'}</span><strong className={!known(visibleSummary.addedReductions) ? 'sim-not-estimated' : ''}>{processed ? signed(visibleSummary.addedReductions) : '—'}</strong></div><small>{complete ? 'One synthetic realization. Additional outcomes are relative to the continuing current program.' : 'These are partial counts, not full-cohort annual rates. Financial totals include fixed costs only in the completed run.'}</small></div>
           </aside>
         </div>
 
@@ -318,10 +341,10 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
           <div className="sim-section-heading"><div><span className="sim-eyebrow">ADDED VALUE OF PHARMACIST INTEGRATION</span><h2 id="sim-results-heading">The full-cohort result</h2><p>{complete ? `${number(inputs.N)} eligible members · one synthetic realization · seed ${inputs.seed}` : 'Finish the run to reveal the complete synthetic result, including fixed program costs.'}</p></div><Link to="/calculator" className="sim-button sim-button-primary">Open financial calculator →</Link></div>
           {complete ? <>
             <div className="sim-financial-result"><span>Additional annual clinic financial surplus per 1,000 eligible members</span><strong>{money(run.actual.delta.netBenefitPer1000)}</strong><p>{known(run.actual.delta.netFinancialBenefit) ? `Cohort total: ${money(run.actual.delta.netFinancialBenefit)} for ${number(inputs.N)} eligible members. Positive means an improvement in clinic operating margin; negative means deterioration.` : 'The financial result is unavailable for these inputs.'}</p></div>
-            <dl className="sim-outcome-summary"><div><dt>Additional RPM starts</dt><dd>{number(run.actual.delta.newInitiations)}</dd></div><div><dt>Additional service months</dt><dd>{signed(run.actual.delta.activeMonths)}</dd></div><div><dt>Additional reductions maintained 12 months after reduction</dt><dd>{signed(run.actual.delta.clinical.sustainedAt12Months)}</dd></div><div><dt>Medication cost offset · excluded from clinic surplus</dt><dd>{money(run.actual.delta.drugSavings)}</dd></div></dl>
+            <dl className="sim-outcome-summary"><div><dt>Additional RPM starts</dt><dd>{number(run.actual.delta.newInitiations)}</dd></div><div><dt>Additional service months</dt><dd>{signed(run.actual.delta.activeMonths)}</dd></div><div><dt>{inputs.clinicalMode === 'minor' ? 'Additional patients with deprescribing at 45 days' : 'Additional reductions maintained 12 months after reduction'}</dt><dd>{signed(inputs.clinicalMode === 'minor' ? run.actual.delta.clinical.actions : run.actual.delta.clinical.sustainedAt12Months)}</dd></div><div><dt>Medication cost offset · excluded from clinic surplus</dt><dd>{money(run.actual.delta.drugSavings)}</dd></div></dl>
             <FinancialResultsTable run={run} />
           </> : <p className="sim-incomplete-result">Patient outcomes appear as the simulation progresses. The calculator provides the expected cohort results and the same applied assumptions at any time.</p>}
-          <p className="sim-footnote">The annual financial result uses the modeled budget year. Twelve-month medication persistence can extend beyond that year. A synthetic realization is not an observed treatment effect, and changing the seed does not measure parameter uncertainty.</p>
+          <p className="sim-footnote">The annual financial result uses the modeled budget year. {inputs.clinicalMode === 'minor' ? 'MINOR contributes a 45-day patient outcome; any 12-month persistence or medication savings are separate extrapolations.' : 'Twelve-month medication persistence can extend beyond that year.'} A synthetic realization is not an observed treatment effect, and changing the seed does not measure parameter uncertainty.</p>
         </section>
 
         <section className="sim-card sim-shared-model" aria-labelledby="sim-shared-heading">

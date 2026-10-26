@@ -189,6 +189,14 @@
 .recruitment-sim .sim-receipt-results>p { font-size:11px; line-height:1.75; color:#607086; margin-bottom:15px; }
 .recruitment-sim .sim-cost-details { margin-top:18px; padding-top:16px; border-top:1px solid #e0e8ef; }
 .recruitment-sim .sim-cost-details .sim-table-wrap { margin-top:13px; }
+.recruitment-sim .sim-study-evidence { margin:18px 0; padding:20px; border-left:4px solid #267f79; }
+.recruitment-sim .sim-study-evidence > label { display:block; font-size:12px; font-weight:750; color:#234b75; margin-bottom:9px; }
+.recruitment-sim .sim-study-evidence > select { width:100%; padding:11px 12px; border:1px solid #bfd1e3; border-radius:6px; background:white; color:#234b75; font-size:12px; }
+.recruitment-sim .sim-evidence-columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; margin:22px 0 14px; }
+.recruitment-sim .sim-evidence-columns h3 { color:#234b75; font-size:14px; margin-bottom:10px; }
+.recruitment-sim .sim-evidence-columns p { font-size:12px; line-height:1.7; color:#526b84; margin-bottom:10px; }
+.recruitment-sim .sim-evidence-columns a { font-size:12px; color:#1956a5; text-decoration:underline; text-underline-offset:3px; }
+@media(max-width:760px) { .recruitment-sim .sim-evidence-columns { grid-template-columns:1fr; gap:18px; } }
 @media(max-width:1050px) {
   .recruitment-sim .sim-usual-care { grid-template-columns:150px minmax(0,1fr); }
   .recruitment-sim .sim-context-copy { padding:12px; }

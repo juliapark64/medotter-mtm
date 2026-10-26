@@ -31,6 +31,8 @@ if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
       population: bundle.inputs.N,
       perspective: bundle.inputs.perspective,
       clinicalMode: bundle.inputs.clinicalMode,
+      recruitmentMode: bundle.inputs.recruitmentMode,
+      minorExtrapolation: bundle.inputs.minorExtrapolation,
       expected: summarize(bundle.expected),
       simulated: summarize(bundle.actual),
       interpretation: 'Exact computational replay passed. This does not validate clinical assumptions or demonstrate observed financial benefit.'
