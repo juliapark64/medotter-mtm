@@ -21,6 +21,8 @@ In the primary comparison, **N is the common enrolled RPM cohort**, not the numb
 
 These task durations are **investigator assumptions**, not measured usual-care workloads or CMS-required staffing times. Routine medication management is included in the pharmacist's clinical time. The pharmacist arm replaces the physician arm's routine delivery costs; it does not retain those costs and add a second complete team. Physician/NPP billing and supervision remain necessary.
 
+**New sensitivity: “$0 additional physician supervision cost · existing clinic resources.”** This keeps the entered oversight minutes and physician workload but assumes existing clinic resources cover the cost, so no additional supervision charge is allocated to the pharmacist program. Required oversight remains. Existing staff time may have opportunity cost; this budget sensitivity is not a fully allocated economic-cost comparison. Other costs, reimbursement and clinical assumptions are preserved, and no extra visit revenue is added. The original costed-supervision scenario remains the default.
+
 The primary scenario leaves comparative clinical effects **unestimated**. Separate sensitivities examine a physician/nurse team, the assumed 9:1 technician-to-pharmacist workflow, MINOR-informed deprescribing and recruitment. The 9:1 scenario is not the default and does not establish that technician time automatically qualifies for reimbursement. Recruitment scenarios answer a different question and use an eligible-population denominator. [Methods and equations](docs/integration-study-methods.md)
 
 ## Evidence and remaining assumptions
@@ -45,7 +47,7 @@ Apply edited inputs before exporting. Scenario JSON records the exact inputs, se
 node scripts/replayIntegrationStudy.js /path/to/scenario.json
 ```
 
-Website application **8.0.0** uses model **rpm-delivery-comparison**, engine **7.0.0**, export schema **7**. Earlier exports are rejected rather than silently reinterpreting an eligible recruitment population as an enrolled cohort. Keep older exports with their original engine. Larger cohorts or more seeds reduce Monte Carlo noise; they do not add empirical evidence or produce clinical confidence intervals.
+Website application **8.1.0** uses model **rpm-delivery-comparison**, engine **8.0.0**, export schema **8**. Exports retain the supervision cost mode and task-level cost basis. Earlier exports, including version 7, are rejected rather than silently changing their cost allocation or patient definition. Keep older exports with their original engine. Larger cohorts or more seeds reduce Monte Carlo noise; they do not add empirical evidence or produce clinical confidence intervals.
 
 ## Website and local development
 

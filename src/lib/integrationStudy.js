@@ -42,7 +42,8 @@ export const INPUT_DEFINITIONS = {
   assistantWage: field('Loaded medical assistant cost', 'Costs and staffing', CLINIC_STAFFING_BENCHMARKS.assistantWage, 'USD/hour', 0, 1000, 'BLS medical assistant hourly employer-cost approximation, not a physician-assistant wage. These modeled logistics minutes are nonclinical and excluded from management billing time.', { evidenceType: 'Derived national wage benchmark', sourceUrls: evidenceUrls('bls-wages-2025', 'bls-benefits-2026') }),
   physicianReferralMinutes: field('Physician time per referral', 'Costs and staffing', CLINIC_TASK_ALLOCATION.physicianReferralMinutes, 'minutes/referral', 0, 120, 'Same physician referral workload in both arms, including referrals that never activate RPM. Replaces the old flat $10 referral charge; no duplicate referral fee is added.', clinicAllocation),
   monitorPhysicianMinutes: field('Physician clinical review and management', 'Costs and staffing', 20, 'minutes/active month', 0, 240, 'Physician-arm patient-specific clinical review and management. Default 20 minutes is an investigator allocation, not an observed workload. Replaced in the pharmacist-led arm; general oversight is separately costed and excluded from billing time.', { ...clinicAllocation, sourceUrls: evidenceUrls('cms-remote-monitoring', 'physician-rpm-workflow') }),
-  physicianOversightMinutes: field('Physician oversight of pharmacist-led care', 'Costs and staffing', 1, 'minutes/active month', 0, 240, 'Nonbillable supervision/escalation allowance in the pharmacist-led arm, distinct from routine clinical management. One minute is an explicit planning assumption, not a measured requirement or a claim that all physician involvement disappears.', clinicAllocation),
+  physicianOversightMinutes: field('Physician oversight of pharmacist-led care', 'Costs and staffing', 1, 'minutes/active month', 0, 240, 'Nonbillable supervision/escalation allowance in the pharmacist-led arm, distinct from routine clinical management. One minute is an explicit planning assumption, not a measured requirement or a claim that all physician involvement disappears. Time remains in the workload even when existing clinic resources cover its cost.', clinicAllocation),
+  physicianOversightCostMode: { label: 'Physician supervision cost allocation', group: 'Costs and staffing', default: 'additional-time', unit: '', options: ['additional-time', 'existing-resources'], description: 'Additional-time charges the entered oversight minutes at the loaded physician rate. Existing-resources assumes existing clinic capacity covers oversight with $0 additional program spending; it retains the time and supervision requirement. This does not establish zero resource or opportunity cost, remove other overhead, or change billing eligibility.', evidenceType: 'Explicit clinic-resource assumption', sourceNotes: 'User-requested sensitivity: oversight is covered by existing clinic resources. Capacity and cost coverage have not been empirically verified.' },
   monitorNurseMinutes: field('Registered nurse monitoring and follow-up', 'Costs and staffing', 0, 'minutes/active month', 0, 240, 'Nurse triage and follow-up in the physician arm. Default zero isolates physician-delivered clinical care; the physician-led nurse-support sensitivity uses 17 minutes.', clinicAllocation),
   qualifiedNurseMinutes: field('Nurse minutes qualifying as clinical work', 'Costs and staffing', 0, 'minutes/active month', 0, 240, 'Qualifying subset of nurse service minutes, not additional labor. Assumes eligible personnel, supervision, interactive communication and all other service requirements. Staff title alone does not establish eligibility.', { ...clinicAllocation, sourceUrls: evidenceUrls('cms-remote-monitoring', 'noridian-incident-to') }),
   monitorAssistantMinutes: field('Medical assistant logistics and reminders', 'Costs and staffing', CLINIC_TASK_ALLOCATION.monitorAssistantMinutes, 'minutes/active month', 0, 240, 'Nonclinical coordination and technical assistance, excluded from management billing minutes. In the optional integrated-team workflow, technician support replaces these integrated-arm tasks.', clinicAllocation),
@@ -100,7 +101,7 @@ export function getRpmPaymentSchedule(inputs = DEFAULT_INTEGRATION_INPUTS, arm =
   return paymentSchedule(checked(inputs), arm === true || arm === 'integrated')
 }
 export const INTEGRATION_MODEL_METADATA = {
-  id: 'rpm-delivery-comparison', version: '7.0.0', schemaVersion: 7,
+  id: 'rpm-delivery-comparison', version: '8.0.0', schemaVersion: 8,
   perspective: 'Clinic operating margin', payerPopulation: 'Original Medicare fee-for-service; Medicare Advantage and commercial contracts excluded',
   currency: 'USD', priceYear: 2026, priceBasis: '2026 budget scenario with source-year transfers explicitly documented: BLS May 2025 national occupational wages use an assumed June 2026 healthcare benefit ratio. Cashbook wages are not used. Vendor package and component-price assumptions are not inflation-adjusted automatically.',
   comparator: 'Same enrolled RPM cohort: physician-delivered clinical care versus pharmacist-delivered clinical care with support and explicit physician oversight. Recruitment and deprescribing extensions are separate secondary scenarios.',
@@ -113,6 +114,7 @@ export const INTEGRATION_MODEL_METADATA = {
   financialEvidence: FINANCIAL_EVIDENCE,
   medicare2026Fees: RPM_MEDICARE_2026_FEES,
   assumptions: [
+    'The existing-resources physician supervision sensitivity retains oversight minutes and physician hours but assigns $0 additional oversight cost to the pharmacist program. Existing clinic resources are assumed to cover the work; no other overhead is removed, no offset revenue is added, and supervision and billing requirements remain. Task records preserve the minutes, wage and valued resource cost separately from the additional budget charge. This is not a fully allocated economic-cost estimate for oversight, nor proof of spare capacity or zero opportunity cost.',
     'Primary delivery mode enrolls the same N patients in both arms with identical existing/new status, start dates, retention and qualification draws. No referrals, recruitment offers or routine added medication reviews are charged. Secondary recruitment mode uses the union of physician and pharmacist initiations; duplicate offers still cost time.',
     'In secondary recruitment mode, known existing RPM participants receive reviews but no new RPM offer/device. Default null recontactUptake prevents offers to unsuccessful physician referrals; a numeric retry probability enables recontact with a separate independent draw.',
     'Secondary recruitment mode does not simulate an exact contact sequence. Recontact eligibility is a simplified usual-pathway classification, not a claim about real-time concurrent referral scheduling.',
@@ -229,7 +231,11 @@ function arm(p, state, integrated, draws = null) {
     { role: 'technician', task: 'onboarding', minutes: team ? onboarding * p.onboardingSupportMinutes : 0, wage: p.supportWage, key: 'supportOnboarding' },
     { role: 'pharmacist', task: 'clinical monitoring', minutes: team ? activeMonths * p.monitorPharmacistMinutes : 0, wage: p.pharmacistWage, key: 'pharmacistMonitoring' },
     { role: 'technician', task: 'RPM clinical and nonclinical support', minutes: team ? activeMonths * p.monitorSupportMinutes : 0, wage: p.supportWage, key: 'technicalSupport' }
-  ].filter(task => task.minutes > 0).map(task => ({ ...task, cost: task.minutes / 60 * task.wage }))
+  ].filter(task => task.minutes > 0).map(task => {
+    const resourceCost = task.minutes / 60 * task.wage
+    const covered = task.key === 'physicianOversight' && p.physicianOversightCostMode === 'existing-resources'
+    return { ...task, resourceCost, costBasis: covered ? 'existing-clinic-resources' : 'allocated-program-cost', cost: covered ? 0 : resourceCost }
+  })
   const hours = role => taskRecords.filter(task => task.role === role).reduce((sum, task) => sum + task.minutes / 60, 0)
   const physicianHours = hours('physician'); const nurseHours = hours('nurse'); const assistantHours = hours('medicalAssistant')
   const pharmacistHours = hours('pharmacist'); const technicianHours = hours('technician'); const supportHours = technicianHours
@@ -346,7 +352,7 @@ export function simulateIntegrationStudy(inputs = DEFAULT_INTEGRATION_INPUTS) {
 export function getIntegrationScenarios(inputs = DEFAULT_INTEGRATION_INPUTS) {
   const p = checked(inputs)
   const delivery = { ...p, comparisonMode: 'delivery', staffingMode: 'integrated-team' }
-  const primary = { ...delivery, clinicalMode: 'unestimated', monitorPhysicianMinutes: 20, monitorNurseMinutes: 0, qualifiedNurseMinutes: 0, monitorAssistantMinutes: 10, onboardingNurseMinutes: 0, onboardingAssistantMinutes: 20, monitorPharmacistMinutes: 20, monitorSupportMinutes: 10, qualifiedSupportMinutes: 0, onboardingMinutes: 2, onboardingSupportMinutes: 18, physicianOversightMinutes: 1 }
+  const primary = { ...delivery, clinicalMode: 'unestimated', monitorPhysicianMinutes: 20, monitorNurseMinutes: 0, qualifiedNurseMinutes: 0, monitorAssistantMinutes: 10, onboardingNurseMinutes: 0, onboardingAssistantMinutes: 20, monitorPharmacistMinutes: 20, monitorSupportMinutes: 10, qualifiedSupportMinutes: 0, onboardingMinutes: 2, onboardingSupportMinutes: 18, physicianOversightMinutes: 1, physicianOversightCostMode: 'additional-time' }
   const recruitment = { ...p, comparisonMode: 'recruitment', staffingMode: 'shared-clinic', monitorPhysicianMinutes: 3, monitorNurseMinutes: 17, qualifiedNurseMinutes: 17, monitorAssistantMinutes: 10, onboardingNurseMinutes: 5, onboardingAssistantMinutes: 15 }
   const evidence20 = { ...primary, ...FINANCIAL_BENCHMARKS, reimbursementMode: 'medicare2026', qualificationShare: .7, setupQualificationShare: .7, collectionShare: .9 }
   const team = { ...delivery, ...RPM_TEAM_TASK_ALLOCATION }
@@ -355,6 +361,7 @@ export function getIntegrationScenarios(inputs = DEFAULT_INTEGRATION_INPUTS) {
   const deliveryMinor = { ...delivery, recruitmentMode: 'mtm-offer', c: DEFAULT_INTEGRATION_INPUTS.c, reviewMinutes: 10, ...minorInputs }
   return [
     { id: 'delivery', name: 'Primary: physician-delivered versus pharmacist-delivered RPM; same enrolled cohort', inputs: primary },
+    { id: 'delivery-existing-oversight', name: '$0 additional physician supervision cost · existing clinic resources', inputs: { ...delivery, physicianOversightCostMode: 'existing-resources' } },
     { id: 'delivery-minor', name: 'Secondary: same cohort plus MINOR 45-day deprescribing review', inputs: deliveryMinor },
     { id: 'delivery-no-enhanced-deprescribing', name: 'Same cohort and review costs; no enhanced deprescribing effect', inputs: { ...deliveryMinor, minorActionIntegrated: minorInputs.minorActionBaseline } },
     { id: 'physician-nurse-team', name: 'Staffing sensitivity: physician-led nurse support versus pharmacist delivery', inputs: { ...primary, monitorPhysicianMinutes: 3, monitorNurseMinutes: 17, qualifiedNurseMinutes: 17, onboardingNurseMinutes: 5, onboardingAssistantMinutes: 15 } },
@@ -392,7 +399,7 @@ export function getDeliveryComparisonMetrics(inputs = DEFAULT_INTEGRATION_INPUTS
     return { revenue: row.revenue, programCost: row.programCost, operatingMargin: row.operatingMargin, costPerActiveMonth: row.activeMonths > 0 ? row.programCost / row.activeMonths : null, laborCost, physicianHours: row.physicianHours, breakEven: { collectionShare, collectionAttainable: collectionShare !== null && collectionShare <= 1, monthlyAllowance, currentMonthlyAllowance: schedule.monthlyBenchmark } }
   }
   const baseline = summary('baseline'); const integrated = summary('integrated')
-  return { comparisonMode: p.comparisonMode, baseline, integrated, financialImpact: integrated.operatingMargin - baseline.operatingMargin, laborCostDifference: integrated.laborCost - baseline.laborCost, physicianHoursReleased: baseline.physicianHours - integrated.physicianHours, interpretation: 'Allocated labor-cost difference and released physician capacity; not necessarily immediate cash payroll savings. No additional visit revenue is counted.' }
+  return { comparisonMode: p.comparisonMode, baseline, integrated, financialImpact: integrated.operatingMargin - baseline.operatingMargin, laborCostDifference: integrated.laborCost - baseline.laborCost, physicianHoursReleased: baseline.physicianHours - integrated.physicianHours, interpretation: p.physicianOversightCostMode === 'existing-resources' ? 'Existing clinic resources cover physician oversight: its time remains, but its valued resource cost is excluded from additional program spending. This sensitivity is not a fully allocated economic-cost comparison. Released physician capacity does not increase from changing cost allocation. No additional visit revenue is counted.' : 'Allocated labor-cost difference and released physician capacity; not necessarily immediate cash payroll savings. No additional visit revenue is counted.' }
 }
 export function findOfferThreshold(inputs = DEFAULT_INTEGRATION_INPUTS, { steps = 100 } = {}) {
   const p = checked(inputs)
@@ -417,12 +424,12 @@ export function findOfferThreshold(inputs = DEFAULT_INTEGRATION_INPUTS, { steps 
 export function createIntegrationExport(run) {
   const replay = simulateIntegrationStudy(checked(run?.inputs))
   for (const key of ['metadata', 'patients', 'expected', 'actual']) if (canonical(run[key]) !== canonical(replay[key])) throw new Error(`Integration ${key} failed exact replay.`)
-  return { schemaVersion: 7, modelVersion: INTEGRATION_MODEL_METADATA.version, modelId: INTEGRATION_MODEL_METADATA.id, ...clone(replay) }
+  return { schemaVersion: 8, modelVersion: INTEGRATION_MODEL_METADATA.version, modelId: INTEGRATION_MODEL_METADATA.id, ...clone(replay) }
 }
 export function verifyIntegrationExport(bundle) {
   const keys = ['schemaVersion', 'modelVersion', 'modelId', 'inputs', 'metadata', 'patients', 'expected', 'actual']
-  if ([1, 2, 3, 4, 5, 6].includes(bundle?.schemaVersion) || ['1.0.0', '2.0.0', '3.0.0', '3.1.0', '4.0.0', '5.0.0', '6.0.0'].includes(bundle?.modelVersion)) throw new Error(`Version ${bundle.modelVersion ?? bundle.schemaVersion} integration exports cannot be replayed with model 7.0.0: the baseline and pharmacist arm now compare delivery for a common enrolled cohort, with substituted clinical work and nonbillable physician oversight. Keep the original export with its matching engine; create a new model 7.0.0 scenario explicitly.`)
-  if (!bundle || Object.keys(bundle).sort().join(',') !== keys.sort().join(',') || bundle.schemaVersion !== 7 || bundle.modelVersion !== INTEGRATION_MODEL_METADATA.version || bundle.modelId !== INTEGRATION_MODEL_METADATA.id) throw new Error('Integration model or export schema mismatch; expected model 7.0.0 and schema 7.')
+  if ([1, 2, 3, 4, 5, 6, 7].includes(bundle?.schemaVersion) || ['1.0.0', '2.0.0', '3.0.0', '3.1.0', '4.0.0', '5.0.0', '6.0.0', '7.0.0'].includes(bundle?.modelVersion)) throw new Error(`Version ${bundle.modelVersion ?? bundle.schemaVersion} integration exports cannot be replayed with model 8.0.0: the baseline comparison now preserves supervision resource time separately from its additional cost allocation. Keep the original export with its matching engine; create a new model 8.0.0 scenario explicitly.`)
+  if (!bundle || Object.keys(bundle).sort().join(',') !== keys.sort().join(',') || bundle.schemaVersion !== 8 || bundle.modelVersion !== INTEGRATION_MODEL_METADATA.version || bundle.modelId !== INTEGRATION_MODEL_METADATA.id) throw new Error('Integration model or export schema mismatch; expected model 8.0.0 and schema 8.')
   createIntegrationExport(bundle); return bundle
 }
 const csvCell = value => '"' + String(value ?? '').replace(/"/g, '""') + '"'

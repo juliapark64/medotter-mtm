@@ -2,7 +2,7 @@
 
 This hypothetical clinic financial study compares **physician-delivered and pharmacist-delivered RPM for the same enrolled Original Medicare patients**. The question is how replacing routine RPM delivery changes the clinic's allocated costs and operating margin. It is not a head-to-head referral contest or a claim that adding a second complete team is beneficial. The AMCP abstract and Word one-pager remain separate, unchanged artifacts.
 
-The calculator and microsimulation share [integrationStudy.js](../src/lib/integrationStudy.js): model `rpm-delivery-comparison`, engine **7.0.0**, export schema **7**, website **8.0.0**. Input definitions and the saved scenario specify the actual run. No patient data have been collected, fitted or used to validate the proposed workflows.
+The calculator and microsimulation share [integrationStudy.js](../src/lib/integrationStudy.js): model `rpm-delivery-comparison`, engine **8.0.0**, export schema **8**, website **8.1.0**. Input definitions and the saved scenario specify the actual run. No patient data have been collected, fitted or used to validate the proposed workflows.
 
 ## Design, cohort and timing
 
@@ -50,6 +50,21 @@ Total arm cost Cj = laborj + technology + shared platform + fixedCost
 These equations describe default delivery work. Edited minutes replace the displayed coefficients; optional extra review adds `completed reviews × reviewMinutes × wP / 60`. The assumed $1,000 pharmacist transition cost occurs once in the year-one model. The established-program sensitivity sets existing share to 100%, review/start month to January and transition cost to zero; it has no new setup or onboarding episodes.
 
 Salary allocation is a resource cost, not necessarily an avoidable cash expense. Released physician hours are capacity; the model does not also monetize them as extra visit revenue. Fixed staffing, minimum shifts, capacity constraints, hiring steps, recruitment expenses and any additional visit revenue require separate data. Equal service time and matched participation isolate a staffing-cost mechanism, but do not establish clinical equivalence.
+
+### Existing-resource supervision sensitivity
+
+The scenario **“$0 additional physician supervision cost · existing clinic resources”** (`delivery-existing-oversight`) sets `physicianOversightCostMode = existing-resources`. It retains the entered oversight duration, physician wage and patient-level physician hours, but assigns **$0 additional program cost** to the oversight task. Its task ledger and exports identify `costBasis = existing-clinic-resources`. Other task costs, overhead, reimbursement, service months and clinical assumptions are unchanged.
+
+This assumes existing clinic resources can cover required oversight without additional expenditure or a second cost allocation to this RPM budget. It does not establish no physician involvement, zero opportunity cost, adequate spare capacity, or independent pharmacist Medicare billing. The existing overhead line is not reduced, nor does the model assume it alone finances the covered oversight. No extra visit revenue is added. The resulting pharmacist margin is a **budget sensitivity with this resource excluded from additional charges**, not a fully allocated economic margin. Physician hours released remain based on actual modeled workload and therefore do not increase when the cost mode changes.
+
+```text
+Oversight workload = active patient-months × entered oversight minutes / 60
+Additional oversight charge = oversight workload × physician wage,
+                              when cost mode = additional-time
+                            = 0, when cost mode = existing-resources
+```
+
+With all default inputs held fixed, 5,960.695 active patient-months at one oversight minute each imply **99.345 physician hours** under either cost mode. Excluding the default **$17,365.96** additional allocation changes the pharmacist budget margin from **−$12,399.63 to +$4,966.33**. Those values are scenario projections, not observed profit. The default `additional-time` mode and its costed oversight remain available; resetting the primary comparison restores that mode.
 
 ### Compensation and vendor assumptions
 
@@ -153,7 +168,7 @@ Expected results are analytic projections. Microsimulation uses the same paramet
 
 Scenario JSON includes inputs, model/evidence metadata, seed, paired records, analytic expectations and simulated summaries. Role-specific `taskRecords` reconcile minutes, hourly costs and task costs. `supportHours` aliases pharmacy-technician hours; do not sum it again. Common fixed costs are cohort costs. `monthlyRevenue + setupRevenue = revenue`; setup is already included and must not be added again. Clinical nulls remain null in exports. CSV is for inspection, JSON for exact replay.
 
-Engine **7.0.0/schema 7** rejects older exports, including 6.0.0. They cannot be silently converted because the question, enrolled denominator, staffing substitution and clinical defaults changed. Keep older runs with their matching source revision.
+Engine **8.0.0/schema 8** records the supervision cost mode and each task’s cost basis. It rejects older exports, including 7.0.0; those runs must not be silently converted to an existing-resource allocation. Earlier versions also used different questions, enrolled denominators, staffing substitution or clinical defaults. Keep older runs with their matching source revision.
 
 ```bash
 node scripts/replayIntegrationStudy.js /path/to/scenario.json

@@ -33,6 +33,7 @@ if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
       population: bundle.inputs.N,
       perspective: bundle.inputs.perspective,
       comparisonMode: bundle.inputs.comparisonMode,
+      physicianOversightCostMode: bundle.inputs.physicianOversightCostMode,
       clinicalMode: bundle.inputs.clinicalMode,
       recruitmentMode: bundle.inputs.recruitmentMode,
       minorExtrapolation: bundle.inputs.minorExtrapolation,

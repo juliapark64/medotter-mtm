@@ -126,8 +126,8 @@ test('exports include exact assumptions and reject altered results, patients, in
   assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
   assert.equal(bundle.metadata.priceYear, 2026)
   assert.equal(bundle.metadata.currency, 'USD')
-  assert.equal(bundle.modelVersion, '7.0.0')
-  assert.equal(bundle.schemaVersion, 7)
+  assert.equal(bundle.modelVersion, '8.0.0')
+  assert.equal(bundle.schemaVersion, 8)
   assert.match(integrationExportCsv(bundle), /expected/)
   for (const mutate of [b => { b.inputs.seed++ }, b => { b.expected.delta.programCost++ }, b => { b.patients[0].id = 'other' }, b => { b.metadata.assumptions = [] }, b => { b.extra = 1 }]) { const b = structuredClone(bundle); mutate(b); assert.throws(() => verifyIntegrationExport(b)) }
   assert.equal(getIntegrationScenarios().find(x => x.id === 'conservative').inputs.clinicalMode, 'none')
@@ -217,7 +217,7 @@ test('matched-cohort pharmacist-heavy workload substitutes clinical work and eva
   const nyu = getIntegrationScenarios().find(s => s.id === 'nyu-workload')
   near(nyu.inputs.monitorPharmacistMinutes, 58 + 1 / 3); assert.equal(getRpmPaymentSchedule(nyu.inputs, 'integrated').additionalUnits, 1)
 })
-test('version 7 exports retain provenance, clinic boundary and reject old or altered accounting', () => {
+test('version 8 exports retain provenance, clinic boundary and reject old or altered accounting', () => {
   const bundle = createIntegrationExport(simulateIntegrationStudy(p({ N: 20 })))
   assert.ok(bundle.metadata.financialEvidence.every(source => (source.url || source.reference) && /^2026-10-2[56]$/.test(source.accessedAt)))
   const allocation = bundle.metadata.financialEvidence.find(source => source.id === 'rpm-task-allocation')
@@ -497,7 +497,7 @@ test('HealthPartners no-added-recruitment retains work and threshold varies inta
   near(threshold.rate, .5, 1e-6)
 })
 
-test('study presets restore cited numbers and version 7 exports record stages, endpoints and extrapolation', () => {
+test('study presets restore cited numbers and version 8 exports record stages, endpoints and extrapolation', () => {
   const changed = p({ intakeAttendance: .9, activationAfterIntake: .1, intakeMinutes: 5, minorActionBaseline: .5, minorActionIntegrated: .9, minorEligibleShare: .5, minorExtrapolation: 'assumed' })
   const preset = getIntegrationScenarios(changed).find(s => s.id === 'healthpartners-minor').inputs
   near(preset.intakeAttendance, 385 / 1423); near(preset.activationAfterIntake, .8); near(preset.intakeMinutes, 60)
@@ -749,10 +749,53 @@ test('established-cohort scenario excludes all new setup and device charges and 
   }
 })
 
-test('version 7 delivery exports label the true comparison and reject v6 rather than silently recost it', () => {
+test('existing clinic supervision resources remove only the additional cost, retaining time and billing', () => {
+  const inputs = delivery({ N: 20 })
+  const scenario = getIntegrationScenarios(inputs).find(s => s.id === 'delivery-existing-oversight')
+  assert.deepEqual(scenario.inputs, { ...inputs, physicianOversightCostMode: 'existing-resources' })
+  const before = simulateIntegrationStudy(inputs)
+  const after = simulateIntegrationStudy(scenario.inputs)
+  for (const basis of ['expected', 'actual']) {
+    assert.deepEqual(after[basis].baseline, before[basis].baseline)
+    const a = before[basis].integrated; const b = after[basis].integrated
+    near(b.costBreakdown.physicianOversight, 0)
+    near(a.programCost - b.programCost, a.costBreakdown.physicianOversight)
+    near(b.operatingMargin - a.operatingMargin, a.costBreakdown.physicianOversight)
+    for (const key of ['revenue', 'monthlyRevenue', 'setupRevenue', 'physicianHours', 'pharmacistHours', 'technicianHours', 'activeMonths', 'qualifiedMonths', 'qualifiedSetups', 'totalParticipants', 'newInitiations', 'fixedCost']) near(b[key], a[key])
+    assert.deepEqual(b.clinical, a.clinical)
+    for (const key of Object.keys(a.costBreakdown)) if (key !== 'physicianOversight') near(b.costBreakdown[key], a.costBreakdown[key])
+    near(getDeliveryComparisonMetrics(inputs, before[basis]).physicianHoursReleased, getDeliveryComparisonMetrics(scenario.inputs, after[basis]).physicianHoursReleased)
+  }
+  assert.deepEqual(getRpmPaymentSchedule(scenario.inputs, 'integrated'), getRpmPaymentSchedule(inputs, 'integrated'))
+  after.patients.forEach((patient, index) => {
+    assert.deepEqual(patient.baseline, before.patients[index].baseline)
+    const task = patient.integrated.taskRecords.find(task => task.key === 'physicianOversight')
+    assert.equal(task.costBasis, 'existing-clinic-resources'); near(task.cost, 0)
+    assert.ok(task.minutes > 0); near(task.resourceCost, task.minutes / 60 * task.wage)
+  })
+  const bundle = createIntegrationExport(after)
+  assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
+  assert.match(integrationExportCsv(bundle), /existing-resources/)
+  assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 7, modelVersion: '7.0.0' }), /Version 7.0.0.*cannot be replayed/)
+  const reset = getIntegrationScenarios(scenario.inputs).find(s => s.id === 'delivery').inputs
+  assert.equal(reset.physicianOversightCostMode, 'additional-time')
+  assert.throws(() => simulateIntegrationStudy({ ...inputs, physicianOversightCostMode: 'free' }), RangeError)
+})
+
+test('default zero-additional-supervision scenario reconciles to the stated margin without changing the primary default', () => {
+  assert.equal(defaults.physicianOversightCostMode, 'additional-time')
+  const inputs = getIntegrationScenarios().find(s => s.id === 'delivery-existing-oversight').inputs
+  const result = expectedIntegrationStudy(inputs)
+  near(result.integrated.programCost, 398121.21941755916)
+  near(result.integrated.operatingMargin, 4966.329960208208)
+  near(result.integrated.physicianHours, 99.34491832704998)
+  near(result.integrated.costBreakdown.physicianOversight, 0)
+})
+
+test('version 8 delivery exports label the true comparison and reject v6 rather than silently recost it', () => {
   const run = simulateIntegrationStudy(delivery({ N: 8, clinicalMode: 'minor' }))
   const bundle = createIntegrationExport(run)
-  assert.equal(bundle.modelId, 'rpm-delivery-comparison'); assert.equal(bundle.modelVersion, '7.0.0'); assert.equal(bundle.schemaVersion, 7)
+  assert.equal(bundle.modelId, 'rpm-delivery-comparison'); assert.equal(bundle.modelVersion, '8.0.0'); assert.equal(bundle.schemaVersion, 8)
   assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 6, modelVersion: '6.0.0' }), /Version 6.0.0.*cannot be replayed/)
   const csv = integrationExportCsv(bundle)
