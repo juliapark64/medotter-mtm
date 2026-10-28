@@ -8,27 +8,29 @@ No study patient data have been collected or fitted. Synthetic histories illustr
 
 ## Main comparison
 
+Opening or reloading the website now loads **“Paired sensitivity: nurse-supported physician versus 60:40 pharmacy team.”** This starting scenario keeps the same 1,000-patient cohort, reimbursement assumptions, vendor package, costed physician oversight and unestimated clinical effects. Changing the selected scenario or inputs updates both study pages for the current session; reloading restores this opening scenario. The original 20-minute physician versus 20-minute pharmacist allocation remains selectable.
+
 The calculator computes expected results; the microsimulation runs the same fictional patients through both delivery models with a reproducible seed. Both use the same existing/new status, start month, retention and billing-qualification draws. Changing playback speed or inspecting a patient does not redraw outcomes or charge another service.
 
 In the primary comparison, **N is the common enrolled RPM cohort**, not the number of eligible people awaiting referral. The default is 1,000 enrolled patients: an assumed 5% already receive RPM in January and everyone else starts in month 7. No referral probabilities, recruitment costs or separate MTM intake costs determine this cohort. New patients receive only the service months remaining in the 12-month budget. The established-program sensitivity starts the full cohort in January with no new onboarding or transition charge.
 
 | Assumed work | Physician-delivered RPM | Pharmacist-delivered RPM |
 | --- | --- | --- |
-| Monthly clinical management | 20 physician minutes | 20 pharmacist minutes |
-| Monthly logistics | 10 medical-assistant minutes | 10 pharmacy-technician minutes |
+| Monthly clinical management | 3 physician + 17 RN minutes | 12 pharmacist + 8 assumed qualifying technician minutes |
+| Monthly nonclinical logistics | 10 medical-assistant minutes | 10 pharmacy-technician minutes (18 total technician minutes) |
 | Separate physician supervision allowance | Included in physician work | 1 additional minute, costed but excluded from qualifying clinical minutes |
-| Clinic onboarding per new start | 20 medical-assistant minutes | 2 pharmacist + 18 technician minutes |
+| Clinic onboarding per new start | 5 RN + 15 medical-assistant minutes | 2 pharmacist + 18 technician minutes |
 
 These task durations are **investigator assumptions**, not measured usual-care workloads or CMS-required staffing times. Routine medication management is included in the pharmacist's clinical time. The pharmacist arm replaces the physician arm's routine delivery costs; it does not retain those costs and add a second complete team. Physician/NPP billing and supervision remain necessary.
 
-**New sensitivity: “$0 additional physician supervision cost · existing clinic resources.”** This keeps the entered oversight minutes and physician workload but assumes existing clinic resources cover the cost, so no additional supervision charge is allocated to the pharmacist program. Required oversight remains. Existing staff time may have opportunity cost; this budget sensitivity is not a fully allocated economic-cost comparison. Other costs, reimbursement and clinical assumptions are preserved, and no extra visit revenue is added. The original costed-supervision scenario remains the default.
+**New sensitivity: “$0 additional physician supervision cost · existing clinic resources.”** This keeps the entered oversight minutes and physician workload but assumes existing clinic resources cover the cost, so no additional supervision charge is allocated to the pharmacist program. Required oversight remains. Existing staff time may have opportunity cost; this budget sensitivity is not a fully allocated economic-cost comparison. Other costs, reimbursement and clinical assumptions are preserved, and no extra visit revenue is added. Costed supervision remains part of the opening paired staffing scenario.
 
 The primary scenario leaves comparative clinical effects **unestimated**. The calculator and microsimulation offer two staffing sensitivities, separately or together:
 
 - **Nurse-supported physician RPM:** 3 physician + 17 RN + 10 medical-assistant minutes per active patient-month; onboarding uses 5 RN + 15 medical-assistant minutes per new start. Historical HINTS physician time informs the approximate 3-minute allowance; the RN, assistant and onboarding allocations remain assumptions.
 - **60:40 technician/pharmacist recurring work:** 12 pharmacist + 18 technician minutes within an assumed 30-minute month. The split transfers an approximate share from the Wisconsin TEAM study of in-person hypertension care, not a measured RPM staffing ratio. Eight technician minutes are assumed qualifying supervised clinical work; ten are nonclinical. Onboarding and separate medication reviews are unchanged.
 
-Each staffing control preserves the other arm and the entered vendor fees, collections, clinical assumptions and supervision cost mode; the paired shortcut applies both allocations. They do not change enrollment or impose clinical effects. Both illustrated allocations contain 20 qualifying clinical minutes, preserving the primary comparison's payment tier. Applying a preset to custom minutes can change that arm's payment tier. The default primary staffing remains unchanged.
+Each staffing control preserves the other arm and the entered vendor fees, collections, clinical assumptions and supervision cost mode; the paired shortcut applies both allocations. They do not change enrollment or impose clinical effects. Both illustrated allocations contain 20 qualifying clinical minutes, preserving the primary comparison's payment tier. Applying a preset to custom minutes can change that arm's payment tier. The paired staffing allocation is now the website opening default; the financial equations and benchmarks are unchanged.
 
 The assumed **9:1 technician-to-pharmacist workflow** remains an exploratory sensitivity, with no validation of the ratio or technician billing eligibility. MINOR-informed deprescribing and recruitment are separate analyses; recruitment uses an eligible-population denominator. None of these staffing allocations establishes clinical equivalence or sufficient capacity. [Methods and equations](docs/integration-study-methods.md)
 
@@ -68,7 +70,7 @@ Apply edited inputs before exporting. Scenario JSON records the exact inputs, se
 node scripts/replayIntegrationStudy.js /path/to/scenario.json
 ```
 
-Website application **8.3.0** uses model **rpm-delivery-comparison**, engine **8.1.0**, export schema **8**. Exports retain the supervision cost mode, task-level cost basis and applied staffing evidence. Earlier-engine exports, including engine 8.0.0, require their matching engine and are rejected here rather than silently changing their evidence or calculation. Keep older exports with their original source revision. Larger cohorts or more seeds reduce Monte Carlo noise; they do not add empirical evidence or produce clinical confidence intervals.
+Website application **8.3.1** uses model **rpm-delivery-comparison**, engine **8.1.0**, export schema **8**. Exports retain the supervision cost mode, task-level cost basis and applied staffing evidence. Earlier-engine exports, including engine 8.0.0, require their matching engine and are rejected here rather than silently changing their evidence or calculation. Keep older exports with their original source revision. Larger cohorts or more seeds reduce Monte Carlo noise; they do not add empirical evidence or produce clinical confidence intervals.
 
 ## Website and local development
 

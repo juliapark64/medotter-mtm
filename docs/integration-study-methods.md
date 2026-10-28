@@ -2,9 +2,11 @@
 
 This hypothetical clinic financial study compares **physician-delivered and pharmacist-delivered RPM for the same enrolled Original Medicare patients**. The question is how replacing routine RPM delivery changes the clinic's allocated costs and operating margin. It is not a head-to-head referral contest or a claim that adding a second complete team is beneficial. The AMCP abstract and Word one-pager remain separate, unchanged artifacts.
 
-The calculator and microsimulation share [integrationStudy.js](../src/lib/integrationStudy.js): model `rpm-delivery-comparison`, engine **8.1.0**, export schema **8**, website **8.3.0**. Input definitions and the saved scenario specify the actual run. No patient data have been collected, fitted or used to validate the proposed workflows.
+The calculator and microsimulation share [integrationStudy.js](../src/lib/integrationStudy.js): model `rpm-delivery-comparison`, engine **8.1.0**, export schema **8**, website **8.3.1**. Input definitions and the saved scenario specify the actual run. No patient data have been collected, fitted or used to validate the proposed workflows.
 
 ## Design, cohort and timing
+
+The website opening scenario is **“Paired sensitivity: nurse-supported physician versus 60:40 pharmacy team”** (`nurse-team-60-40`). It applies both staffing sensitivities to the reference cohort and financial inputs; comparative clinical effects remain unestimated. The calculator and microsimulation start from the same scenario, and a full reload restores it. The original 20-clinical-minute physician/pharmacist preset remains selectable. This UI default change does not revise the study engine or its underlying reference inputs.
 
 The primary `comparisonMode = delivery` assigns every member of the common enrolled cohort `N` to both arms. Physician referral and pharmacist recruitment probabilities do not select patients or generate recruitment costs in this mode. The default `N = 1000` is not a denominator of 1,000 eligible people awaiting enrollment.
 
@@ -24,21 +26,22 @@ The budget includes only months 1–12. A 45-day clinical outcome can extend pas
 
 | Work per active month, unless stated | Physician arm | Pharmacist arm |
 | --- | --- | --- |
-| Clinical management | 20 physician minutes | 20 pharmacist minutes |
-| Nonclinical logistics | 10 medical-assistant minutes | 10 pharmacy-technician minutes |
+| Clinical management | 3 physician + 17 RN minutes | 12 pharmacist + 8 assumed qualifying technician minutes |
+| Nonclinical logistics | 10 medical-assistant minutes | 10 pharmacy-technician minutes (18 total technician minutes) |
 | Separate physician oversight | No second charge beyond entered physician work | 1 minute, costed and excluded from qualifying clinical time |
-| Onboarding per unique new start | 20 medical-assistant minutes | 2 pharmacist + 18 pharmacy-technician minutes |
+| Onboarding per unique new start | 5 RN + 15 medical-assistant minutes | 2 pharmacist + 18 pharmacy-technician minutes |
 | Separate added medication review in primary analysis | None | None |
 
-Every duration is an **investigator task-allocation assumption**, not a published average or a CMS staffing requirement. The 20 pharmacist minutes include routine medication management. The primary analysis does not charge a separate review for that same work. Generic supervision is distinct from billable patient-specific management. The one-minute oversight allowance does not demonstrate that all actual supervision or escalations can be completed in that time.
+Every duration is an **investigator task-allocation assumption**, not a published average or a CMS staffing requirement. The pharmacist clinical minutes include routine medication management. The primary analysis does not charge a separate review for that same work. Generic supervision is distinct from billable patient-specific management. The one-minute oversight allowance does not demonstrate that all actual supervision or escalations can be completed in that time.
 
 Routine physician/nurse/assistant service costs are replaced in the pharmacist arm. Only its explicitly entered physician oversight remains; the model does not charge both full delivery teams. Qualifying nurse/technician minutes are subsets of costed work, never extra minutes. Onboarding and separately costed review are excluded from recurring management time.
 
-Let `wD`, `wR`, `wA`, `wP`, `wT` be loaded hourly costs for physician, RN, medical assistant, pharmacist and pharmacy technician. At the primary allocation:
+Let `wD`, `wR`, `wA`, `wP`, `wT` be loaded hourly costs for physician, RN, medical assistant, pharmacist and pharmacy technician. At the opening paired staffing allocation:
 
 ```text
-Physician-arm labor = [M × (20wD + 10wA) + S × 20wA] / 60
-Pharmacist-arm labor = [M × (20wP + 10wT + 1wD)
+Physician-arm labor = [M × (3wD + 17wR + 10wA)
+                       + S × (5wR + 15wA)] / 60
+Pharmacist-arm labor = [M × (12wP + 18wT + 1wD)
                         + S × (2wP + 18wT)] / 60
 Technology cost = S × deviceCost
                   + M × (monthlyTechnologyCost + monthlyConnectivityCost)
@@ -47,7 +50,7 @@ Total arm cost Cj = laborj + technology + shared platform + fixedCost
                    + pharmacist-arm transition cost, if applicable
 ```
 
-These equations describe default delivery work. Edited minutes replace the displayed coefficients; optional extra review adds `completed reviews × reviewMinutes × wP / 60`. The assumed $1,000 pharmacist transition cost occurs once in the year-one model. The established-program sensitivity sets existing share to 100%, review/start month to January and transition cost to zero; it has no new setup or onboarding episodes.
+These equations describe the opening paired staffing scenario. Edited minutes replace the displayed coefficients; optional extra review adds `completed reviews × reviewMinutes × wP / 60`. The assumed $1,000 pharmacist transition cost occurs once in the year-one model. The established-program sensitivity sets existing share to 100%, review/start month to January and transition cost to zero; it has no new setup or onboarding episodes.
 
 Salary allocation is a resource cost, not necessarily an avoidable cash expense. Released physician hours are capacity; the model does not also monetize them as extra visit revenue. Fixed staffing, minimum shifts, capacity constraints, hiring steps, recruitment expenses and any additional visit revenue require separate data. Equal service time and matched participation isolate a staffing-cost mechanism, but do not establish clinical equivalence.
 
@@ -64,7 +67,7 @@ Additional oversight charge = oversight workload × physician wage,
                             = 0, when cost mode = existing-resources
 ```
 
-With all default inputs held fixed, 5,960.695 active patient-months at one oversight minute each imply **99.345 physician hours** under either cost mode. Excluding the default **$17,365.96** additional allocation changes the pharmacist budget margin from **−$12,399.63 to +$4,966.33**. Those values are scenario projections, not observed profit. The default `additional-time` mode and its costed oversight remain available; resetting the primary comparison restores that mode.
+With the opening paired staffing inputs held fixed, 5,960.695 active patient-months at one oversight minute each imply **99.345 physician hours** under either cost mode. Excluding the **$17,365.96** additional allocation changes the pharmacist budget margin from **+$38,815.77 to +$56,181.73**. Those values are scenario projections, not observed profit. The opening scenario retains `additional-time` mode and its costed oversight; choosing the existing-resources sensitivity excludes that additional charge.
 
 ### Compensation and vendor assumptions
 
