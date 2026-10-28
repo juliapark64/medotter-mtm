@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULT_INTEGRATION_INPUTS as defaults, simulateIntegrationStudy, expectedIntegrationStudy, validateIntegrationInputs, createIntegrationExport, verifyIntegrationExport, integrationExportCsv, getIntegrationScenarios, findOfferThreshold, getRpmPaymentSchedule, getDeliveryComparisonMetrics } from './integrationStudy.js'
+import { DEFAULT_INTEGRATION_INPUTS as defaults, simulateIntegrationStudy, expectedIntegrationStudy, validateIntegrationInputs, createIntegrationExport, verifyIntegrationExport, integrationExportCsv, getIntegrationScenarios, findOfferThreshold, getRpmPaymentSchedule, getDeliveryComparisonMetrics, getStaffingEvidence } from './integrationStudy.js'
 // Keep the established recruitment tests explicitly scoped to the secondary analysis.
 const p = overrides => ({ ...defaults, comparisonMode: 'recruitment', staffingMode: 'shared-clinic', monitorPhysicianMinutes: 3, monitorNurseMinutes: 17, qualifiedNurseMinutes: 17, onboardingNurseMinutes: 5, onboardingAssistantMinutes: 15, monitorPharmacistMinutes: 3, monitorSupportMinutes: 27, qualifiedSupportMinutes: 17, clinicalMode: 'illustrative', ...overrides })
 const delivery = overrides => ({ ...defaults, ...overrides })
@@ -126,7 +126,7 @@ test('exports include exact assumptions and reject altered results, patients, in
   assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
   assert.equal(bundle.metadata.priceYear, 2026)
   assert.equal(bundle.metadata.currency, 'USD')
-  assert.equal(bundle.modelVersion, '8.0.0')
+  assert.equal(bundle.modelVersion, '8.1.0')
   assert.equal(bundle.schemaVersion, 8)
   assert.match(integrationExportCsv(bundle), /expected/)
   for (const mutate of [b => { b.inputs.seed++ }, b => { b.expected.delta.programCost++ }, b => { b.patients[0].id = 'other' }, b => { b.metadata.assumptions = [] }, b => { b.extra = 1 }]) { const b = structuredClone(bundle); mutate(b); assert.throws(() => verifyIntegrationExport(b)) }
@@ -219,7 +219,7 @@ test('matched-cohort pharmacist-heavy workload substitutes clinical work and eva
 })
 test('version 8 exports retain provenance, clinic boundary and reject old or altered accounting', () => {
   const bundle = createIntegrationExport(simulateIntegrationStudy(p({ N: 20 })))
-  assert.ok(bundle.metadata.financialEvidence.every(source => (source.url || source.reference) && /^2026-10-2[56]$/.test(source.accessedAt)))
+  assert.ok(bundle.metadata.financialEvidence.every(source => (source.url || source.reference) && /^2026-10-2[567]$/.test(source.accessedAt)))
   const allocation = bundle.metadata.financialEvidence.find(source => source.id === 'rpm-task-allocation')
   assert.equal(allocation.url, null); assert.match(allocation.reference, /RPM etc!B30:B31/)
   assert.match(allocation.description, /not staff headcount or all program work/)
@@ -235,7 +235,7 @@ test('version 8 exports retain provenance, clinic boundary and reject old or alt
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 1, modelVersion: '1.0.0' }), /Version 1.*cannot be replayed/)
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 2, modelVersion: '2.0.0' }), /Version 2.*cannot be replayed/)
   assert.throws(() => verifyIntegrationExport({ ...bundle, modelVersion: '3.0.0' }), /Version 3\.0\.0.*cannot be replayed/)
-  assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 3, modelVersion: '3.1.0' }), /Version 3\.1\.0.*cannot be replayed.*baseline/)
+  assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 3, modelVersion: '3.1.0' }), /Version 3\.1\.0.*cannot be replayed.*matching engine/)
   for (const mutate of [b => { b.actual.integrated.setupRevenue++ }, b => { b.expected.integrated.costBreakdown.platformBase++ }, b => { b.metadata.medicare2026Fees.setup99453++ }]) {
     const changed = structuredClone(bundle); mutate(changed); assert.throws(() => verifyIntegrationExport(changed), /exact replay/)
   }
@@ -795,7 +795,7 @@ test('default zero-additional-supervision scenario reconciles to the stated marg
 test('version 8 delivery exports label the true comparison and reject v6 rather than silently recost it', () => {
   const run = simulateIntegrationStudy(delivery({ N: 8, clinicalMode: 'minor' }))
   const bundle = createIntegrationExport(run)
-  assert.equal(bundle.modelId, 'rpm-delivery-comparison'); assert.equal(bundle.modelVersion, '8.0.0'); assert.equal(bundle.schemaVersion, 8)
+  assert.equal(bundle.modelId, 'rpm-delivery-comparison'); assert.equal(bundle.modelVersion, '8.1.0'); assert.equal(bundle.schemaVersion, 8)
   assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
   assert.throws(() => verifyIntegrationExport({ ...bundle, schemaVersion: 6, modelVersion: '6.0.0' }), /Version 6.0.0.*cannot be replayed/)
   const csv = integrationExportCsv(bundle)
@@ -803,4 +803,81 @@ test('version 8 delivery exports label the true comparison and reject v6 rather 
   assert.match(csv, /physicianOversight/); assert.match(csv, /scenario_key/)
   assert.throws(() => simulateIntegrationStudy(delivery({ comparisonMode: 'wrong' })), RangeError)
   assert.throws(() => simulateIntegrationStudy(delivery({ physicianOversightMinutes: -1 })), RangeError)
+})
+
+test('staffing sensitivities compose in either order while preserving non-staffing assumptions', () => {
+  const inputs = delivery({ N: 25, seed: 843, deviceCost: 71, monthlyTechnologyCost: 14, monthlyConnectivityCost: 3, monthlyPlatformBaseCost: 183, clinicalMode: 'minor', physicianOversightCostMode: 'existing-resources', physicianOversightMinutes: 4, pharmacistWage: 105, qualificationShare: .61, collectionShare: .87, onboardingMinutes: 7, onboardingSupportMinutes: 23 })
+  const select = (base, id) => getIntegrationScenarios(base).find(s => s.id === id).inputs
+  const nursing = select(inputs, 'physician-nurse-team')
+  const pharmacy = select(inputs, 'team-60-40')
+  const combined = select(inputs, 'nurse-team-60-40')
+  assert.deepEqual(select(nursing, 'team-60-40'), combined)
+  assert.deepEqual(select(pharmacy, 'physician-nurse-team'), combined)
+  for (const candidate of [nursing, pharmacy, combined]) assert.deepEqual(validateIntegrationInputs(candidate), {})
+  for (const key of ['N', 'seed', 'deviceCost', 'monthlyTechnologyCost', 'monthlyConnectivityCost', 'monthlyPlatformBaseCost', 'clinicalMode', 'physicianOversightCostMode', 'physicianOversightMinutes', 'pharmacistWage', 'qualificationShare', 'collectionShare', 'onboardingMinutes', 'onboardingSupportMinutes']) {
+    assert.equal(combined[key], inputs[key], key)
+  }
+  for (const key of ['monitorPharmacistMinutes', 'monitorSupportMinutes', 'qualifiedSupportMinutes']) assert.equal(nursing[key], inputs[key])
+  for (const key of ['monitorPhysicianMinutes', 'monitorNurseMinutes', 'qualifiedNurseMinutes', 'monitorAssistantMinutes', 'onboardingNurseMinutes', 'onboardingAssistantMinutes']) assert.equal(pharmacy[key], inputs[key])
+  assert.equal(defaults.monitorPhysicianMinutes, 20)
+  assert.equal(defaults.monitorPharmacistMinutes, 20)
+  assert.equal(defaults.monitorSupportMinutes, 10)
+})
+
+test('paired staffing sensitivity reconciles hand-calculated independent one-month staff budgets', () => {
+  const inputs = getIntegrationScenarios(delivery({ N: 1, existingRpmShare: 0, startMonth: 12, monthlyRetention: 1, qualificationShare: 1, setupQualificationShare: 1, collectionShare: 1, ...zeroCosts, physicianWage: 175, nurseWage: 69, assistantWage: 31, pharmacistWage: 96, supportWage: 32 })).find(s => s.id === 'nurse-team-60-40').inputs
+  const run = simulateIntegrationStudy(inputs)
+  for (const basis of ['expected', 'actual']) {
+    const { baseline, integrated } = run[basis]
+    near(baseline.programCost, 46.96666666666667) // (3×175 + 17×69 + 10×31 + 5×69 + 15×31) / 60
+    near(integrated.programCost, 44.51666666666667) // (12×96 + 18×32 + 1×175 + 2×96 + 18×32) / 60
+    near(baseline.revenue, 125.59); near(integrated.revenue, 125.59)
+    near(integrated.costBreakdown.technicalSupport, 9.6) // All 18 minutes paid once, including the qualifying subset.
+    for (const key of ['physicianMonitoring', 'nurseMonitoring', 'assistantMonitoring', 'nurseOnboarding', 'assistantOnboarding']) near(integrated.costBreakdown[key], 0)
+    for (const key of ['pharmacistMonitoring', 'technicalSupport', 'onboarding', 'supportOnboarding', 'physicianOversight']) near(baseline.costBreakdown[key], 0)
+  }
+  const patient = run.patients[0]
+  const minutes = (arm, key) => patient[arm].taskRecords.find(t => t.key === key)?.minutes || 0
+  assert.equal(minutes('baseline', 'physicianMonitoring'), 3)
+  assert.equal(minutes('baseline', 'nurseMonitoring'), 17)
+  assert.equal(minutes('baseline', 'assistantMonitoring'), 10)
+  assert.equal(minutes('integrated', 'pharmacistMonitoring'), 12)
+  assert.equal(minutes('integrated', 'technicalSupport'), 18)
+  assert.equal(minutes('integrated', 'physicianOversight'), 1)
+})
+
+test('60:40 qualifying technician time changes payment eligibility without changing paid work or the physician arm', () => {
+  const inputs = getIntegrationScenarios(delivery({ N: 25 })).find(s => s.id === 'nurse-team-60-40').inputs
+  const before = simulateIntegrationStudy(inputs)
+  const after = simulateIntegrationStudy({ ...inputs, qualifiedSupportMinutes: 0 })
+  assert.equal(getRpmPaymentSchedule(inputs, 'integrated').managementCode, '99457')
+  assert.equal(getRpmPaymentSchedule(after.inputs, 'integrated').managementCode, '99470')
+  for (const basis of ['expected', 'actual']) {
+    assert.deepEqual(after[basis].baseline, before[basis].baseline)
+    assert.deepEqual(after[basis].integrated.costBreakdown, before[basis].integrated.costBreakdown)
+    near(after[basis].integrated.technicianHours, before[basis].integrated.technicianHours)
+    assert.ok(after[basis].integrated.revenue < before[basis].integrated.revenue)
+    for (const key of ['newInitiations', 'activeMonths', 'qualifiedMonths', 'qualifiedSetups']) near(before[basis].baseline[key], before[basis].integrated[key])
+  }
+  after.patients.forEach((patient, i) => assert.deepEqual(patient.integrated.taskRecords, before.patients[i].integrated.taskRecords))
+})
+
+test('staffing evidence follows the applied workload and survives reproducible JSON and CSV exports', () => {
+  const inputs = getIntegrationScenarios(delivery({ N: 8, physicianOversightCostMode: 'existing-resources' })).find(s => s.id === 'nurse-team-60-40').inputs
+  const notes = getStaffingEvidence(inputs)
+  assert.deepEqual(notes.map(n => n.id), ['hints-nurse-supported', 'team-60-40'])
+  assert.match(notes[0].description, /57.3.*18 months/)
+  assert.match(notes[0].description, /assum/)
+  assert.ok(notes[0].sourceUrls.some(url => url.startsWith('https://dukespace.lib.duke.edu/')))
+  assert.match(notes[1].description, /not RPM/)
+  assert.match(notes[1].description, /8 qualifying technician minutes/)
+  assert.ok(notes[1].sourceUrls.includes('https://pmc.ncbi.nlm.nih.gov/articles/PMC4958589/'))
+  assert.equal(getStaffingEvidence({ ...inputs, monitorPharmacistMinutes: 15, monitorSupportMinutes: 15 }).length, 1)
+  assert.equal(getStaffingEvidence({ ...inputs, monitorPhysicianMinutes: 6 }).length, 1)
+  const bundle = createIntegrationExport(simulateIntegrationStudy(inputs))
+  assert.deepEqual(bundle.metadata.appliedStaffingEvidence, notes)
+  assert.deepEqual(verifyIntegrationExport(JSON.parse(JSON.stringify(bundle))), bundle)
+  const csv = integrationExportCsv(bundle)
+  assert.match(csv, /hints-nurse-supported/); assert.match(csv, /team-60-40/); assert.match(csv, /PMC4958589/)
+  assert.throws(() => verifyIntegrationExport({ ...bundle, modelVersion: '8.0.0' }), /Version 8.0.0.*cannot be replayed/)
 })
