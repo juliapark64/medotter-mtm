@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useIntegrationStudy } from '../context/IntegrationStudyContext'
+import StudySensitivity from '../components/StudySensitivity'
 import { FINANCIAL_EVIDENCE, getIntegrationScenarios, getRpmPaymentSchedule } from '../lib/integrationStudy'
 import { STUDY_COST_LABELS, STUDY_HOUR_ROWS, ClinicPathwaySummary, RecurringStaffingSummary, PairedPaymentSummary, PatientTaskLedger, PolicyContext, armLabels, hasCoveredPhysicianOversight, marginLabel } from '../components/StudyStaffing'
 import '../styles/integrationStudy.css'
@@ -74,7 +75,7 @@ function FinancialResultsTable({ run, inputs }) {
   </div>
 }
 
-function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
+function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice, sensitivityConfig, setSensitivityConfig }) {
   const [playback, dispatch] = useReducer(playbackReducer, initialPlayback)
   const [speed, setSpeed] = useState('1')
   const [inspectId, setInspectId] = useState('')
@@ -127,6 +128,7 @@ function IntegrationPlayback({ inputs, run, applyInputs, setNotice, notice }) {
       {complete ? <><div className="sim-paired-finances">{['baseline', 'integrated'].map((arm, index) => <div key={arm} className="sim-financial-result"><span>{labels[index]} · {marginLabel(inputs, arm)}</span><strong>{money(run.actual[arm].operatingMargin)}</strong><p>{money(run.actual[arm].revenue)} collections − {money(run.actual[arm].programCost)} program costs.{arm === 'integrated' && hasCoveredPhysicianOversight(inputs) && ' Additional supervision cost is excluded under the existing-resources assumption.'}</p></div>)}</div><FinancialResultsTable run={run} inputs={inputs} /><div className="sim-switch-summary"><h3>Secondary: financial impact of switching</h3><p>Margin difference under selected cost allocation: <strong>{money(run.actual.delta.operatingMargin)}</strong>. Physician hours released: <strong>{number(run.actual.baseline.physicianHours - run.actual.integrated.physicianHours)}</strong>. Released salaried time is capacity, not automatic cash savings; no new-visit revenue is assigned.</p></div><dl className="sim-outcome-summary">{['baseline', 'integrated'].map((arm, index) => <div key={arm}><dt>{labels[index]} · {inputs.clinicalMode === 'minor' ? '45-day deprescribing outcomes' : 'modeled medication reductions'}</dt><dd>{number(run.actual[arm].clinical.actions)}</dd></div>)}</dl></> : <p className="sim-incomplete-result">The calculator provides analytic expectations at any time. This playback reveals one seeded realization as patients are processed.</p>}
       <p className="sim-footnote">The model covers one budget year. The existing-resources supervision scenario excludes its additional budget charge while retaining oversight hours; existing staff still use resources and can have opportunity cost. Medication offsets are excluded from clinic margin. MINOR’s 45-day endpoint does not establish annual drug savings. Changing the seed illustrates random simulation variation, not clinical evidence or parameter uncertainty.</p>
     </section>
+    <details className="sim-card sim-sensitivity-panel"><summary>Sensitivity &amp; break-even · analytic expected values</summary><p className="sim-footnote">Explore which assumptions drive the complete program budgets at any point in playback. These analyses use analytic expected values from the same applied scenario, not partial playback totals or confidence intervals from synthetic patients. The controls and applied ranges are shared with the calculator.</p><StudySensitivity inputs={inputs} config={sensitivityConfig} onConfigChange={setSensitivityConfig} onApplyInputs={next => { applyInputs(next); setNotice('Sensitivity cell applied to both pages. Playback restarts and sensitivity ranges reset for the new scenario.') }} onNotice={setNotice} /></details>
     <section className="sim-card sim-shared-model"><div><span className="sim-eyebrow">REPRODUCIBLE STUDY SCENARIO</span><h2>Inspect the assumptions behind every patient</h2><p>Both delivery arms use the same seed and source inputs. The task ledger makes transferred clinical work, support and separate supervision visible. Save JSON from the calculator to reproduce all patient-level calculations.</p></div><div className="sim-shared-links"><Link to="/calculator" className="sim-button">Inputs, citations & exports →</Link><Link to="/integration-demo" className="sim-text-link">Explore the care workflow ↗</Link></div></section>
   </div></div>
 }

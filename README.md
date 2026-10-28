@@ -43,6 +43,18 @@ The assumed **9:1 technician-to-pharmacist workflow** remains an exploratory sen
 
 Lower allocated labor cost does not necessarily reduce a salaried clinic's cash payroll. Released physician hours are reported as capacity; they are not also converted into extra visit revenue. Equal billing assumptions isolate staffing costs, but they do not prove equal quality, safety or workload in practice.
 
+## Sensitivity and break-even analysis
+
+Both study pages include a shared financial sensitivity analysis based on the **analytic expected values of the applied scenario**, independent of the microsimulation's playback progress or random seed. Choose either program's margin or the pharmacist-minus-physician margin difference as the outcome.
+
+- **One-way analysis** changes one input at a time and ranks drivers by the outcome range. Editable bounds are investigator-selected stress tests, not measured confidence intervals. Billing-time thresholds are included because lowering labor time can also lower reimbursement; the lowest input need not give the highest margin.
+- **Two-way analysis** varies two inputs together. Inspect a heatmap cell to see both complete program margins and their difference. Invalid combinations, such as qualifying technician time exceeding paid technician time, are identified rather than silently recosted. Inspection does not change the applied program; the explicit apply action does.
+- **Break-even targets** show each program's required collection and monthly qualification shares, maximum affordable monthly technology and one-time device fees, and pharmacist-time intervals satisfying the selected financial conditions. These hold other assumptions fixed and do not establish safe clinical workloads or actual billing eligibility. A rate above 100%, a negative affordable fee or an absent paid-service denominator is shown as an unattainable or undefined target, as applicable.
+
+Shared revenue or vendor assumptions may change both programs' absolute profitability while leaving their margin difference unchanged. A zero bar for that difference does not mean the assumption is unimportant to financial feasibility. The ranking is conditional on the chosen bounds and model structure; it is not evidence of a causal effect or parameter importance in observed practice. Medication-cost offsets remain outside clinic operating margin.
+
+Sensitivity JSON/CSV exports retain the applied inputs, ranges, outcome, two-way axes, source notes and deterministic results. Verify a saved analysis with `node scripts/replaySensitivity.js /path/to/sensitivity.json`. Sensitivity replay permits documented numeric tolerance for derived results across JavaScript runtimes; assumptions, sampled input coordinates and evidence metadata are compared without that tolerance. The sensitivity analysis has its own **version 1.0.0 / export schema 1**, using the unchanged study engine **8.1.0 / scenario schema 8**. It is deterministic sensitivity analysis, not probabilistic sensitivity analysis or a clinical confidence interval. [Detailed methods and threshold equations](docs/integration-study-methods.md#financial-sensitivity-and-break-even-analysis)
+
 ## CMS policy context
 
 As checked **October 26, 2026**, the CY 2027 PFS restriction on outsourced RPM clinical services is **proposed, not final**. If finalized as written, clinical staff would need to be direct employees of the billing practitioner/practice from January 1, 2027, under general supervision and incident-to requirements. Staff and patients need not be on-site. This staffing proposal does not establish a blanket ban on purchasing vendor technology; device/software costs remain modeled. The website uses **2026 fee benchmarks** as a staffing-policy sensitivity. The proposal also includes initiating-visit and valuation changes that are not implemented here; this is not a complete 2027 implementation forecast. [CMS proposal](https://www.cms.gov/newsroom/fact-sheets/calendar-year-cy-2027-medicare-physician-fee-schedule-proposed-rule), [official proposed rule, pages 150–152](https://public-inspection.federalregister.gov/2026-14327.pdf), [CMS rule index](https://www.cms.gov/medicare/payment/fee-schedules/physician/federal-regulation-notices)
@@ -56,7 +68,7 @@ Apply edited inputs before exporting. Scenario JSON records the exact inputs, se
 node scripts/replayIntegrationStudy.js /path/to/scenario.json
 ```
 
-Website application **8.2.0** uses model **rpm-delivery-comparison**, engine **8.1.0**, export schema **8**. Exports retain the supervision cost mode, task-level cost basis and applied staffing evidence. Earlier-engine exports, including engine 8.0.0, require their matching engine and are rejected here rather than silently changing their evidence or calculation. Keep older exports with their original source revision. Larger cohorts or more seeds reduce Monte Carlo noise; they do not add empirical evidence or produce clinical confidence intervals.
+Website application **8.3.0** uses model **rpm-delivery-comparison**, engine **8.1.0**, export schema **8**. Exports retain the supervision cost mode, task-level cost basis and applied staffing evidence. Earlier-engine exports, including engine 8.0.0, require their matching engine and are rejected here rather than silently changing their evidence or calculation. Keep older exports with their original source revision. Larger cohorts or more seeds reduce Monte Carlo noise; they do not add empirical evidence or produce clinical confidence intervals.
 
 ## Website and local development
 

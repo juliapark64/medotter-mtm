@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom'
 import { useIntegrationStudy } from '../context/IntegrationStudyContext'
 import { DEFAULT_INTEGRATION_INPUTS, INPUT_DEFINITIONS, createIntegrationExport, expectedIntegrationStudy, getIntegrationScenarios, getRpmPaymentSchedule, integrationExportCsv, validateIntegrationInputs, verifyIntegrationExport } from '../lib/integrationStudy'
 import { FINANCIAL_EVIDENCE } from '../data/integrationFinancialEvidence'
+import StudySensitivity from '../components/StudySensitivity'
 import { STUDY_COST_LABELS, STUDY_HOUR_ROWS, ClinicPathwaySummary, RecurringStaffingSummary, PairedPaymentSummary, PolicyContext, armLabels, hasCoveredPhysicianOversight, marginLabel } from '../components/StudyStaffing'
 import '../styles/integrationStudy.css'
 
-const TABS = ['Overview', 'Cohort & service', 'Deprescribing', 'Financial return', 'Evidence & scenarios']
+const TABS = ['Overview', 'Cohort & service', 'Deprescribing', 'Financial return', 'Sensitivity & break-even', 'Evidence & scenarios']
 const METHODS = 'https://github.com/juliapark64/medotter-mtm/blob/main/docs/integration-study-methods.md'
 const known = value => typeof value === 'number' && Number.isFinite(value)
 const number = value => known(value) ? value.toLocaleString('en-US', { maximumFractionDigits: 1 }) : 'Not estimated'
@@ -96,7 +97,7 @@ function BreakEven({ inputs, result }) {
 }
 
 export default function IntegrationStudyCalculator() {
-  const { inputs, run, applyInputs, notice, setNotice } = useIntegrationStudy()
+  const { inputs, run, applyInputs, notice, setNotice, sensitivityConfig, setSensitivityConfig } = useIntegrationStudy()
   const [draft, setDraft] = useState(inputs)
   const [errors, setErrors] = useState({})
   const [tab, setTab] = useState('Overview')
@@ -172,6 +173,7 @@ export default function IntegrationStudyCalculator() {
           <BreakEven inputs={inputs} result={run.expected} />
           <PolicyContext />
         </>}
+        {tab === 'Sensitivity & break-even' && <StudySensitivity inputs={inputs} config={sensitivityConfig} onConfigChange={setSensitivityConfig} onApplyInputs={apply} onNotice={setNotice} />}
         {tab === 'Evidence & scenarios' && <>
           <section className="study-card"><h2>Keep the comparison and assumptions visible</h2><p className="study-copy">Delivery scenarios use matched patients. Recruitment scenarios answer a separate question. Workload, staffing capacity, physician supervision time and its coverage by existing resources, vendor pricing, billing qualification and collection realization remain assumptions even when fees and wages have citations.</p><div className="study-table-wrap"><table className="study-table"><thead><tr><th>Scenario</th><th>Program A margin</th><th>Program B margin</th><th>Apply</th></tr></thead><tbody>{scenarios.map(s => <tr key={s.id}><th scope="row">{s.name}<br /><small>{options[s.inputs.comparisonMode]}</small></th><td>{money(s.result.baseline.operatingMargin)}</td><td>{money(s.result.integrated.operatingMargin)}</td><td><button className="study-small-button" aria-label={`Apply ${s.name}`} onClick={() => apply(s.inputs)}>Apply scenario</button></td></tr>)}</tbody></table></div></section>
           <PolicyContext />

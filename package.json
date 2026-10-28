@@ -1,7 +1,7 @@
 {
   "name": "medotter-mtm",
   "private": true,
-  "version": "8.2.0",
+  "version": "8.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,8 @@
     "test": "node --test src/lib/*.test.js",
     "scenarios": "node scripts/runScenarios.js",
     "scenarios:providers": "node scripts/runProviderScenarios.js",
-    "replay:integration": "node scripts/replayIntegrationStudy.js"
+    "replay:integration": "node scripts/replayIntegrationStudy.js",
+    "replay:sensitivity": "node scripts/replaySensitivity.js"
   },
   "dependencies": {
     "react": "^18.3.1",

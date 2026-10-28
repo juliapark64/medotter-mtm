@@ -2,7 +2,7 @@
 
 This hypothetical clinic financial study compares **physician-delivered and pharmacist-delivered RPM for the same enrolled Original Medicare patients**. The question is how replacing routine RPM delivery changes the clinic's allocated costs and operating margin. It is not a head-to-head referral contest or a claim that adding a second complete team is beneficial. The AMCP abstract and Word one-pager remain separate, unchanged artifacts.
 
-The calculator and microsimulation share [integrationStudy.js](../src/lib/integrationStudy.js): model `rpm-delivery-comparison`, engine **8.1.0**, export schema **8**, website **8.2.0**. Input definitions and the saved scenario specify the actual run. No patient data have been collected, fitted or used to validate the proposed workflows.
+The calculator and microsimulation share [integrationStudy.js](../src/lib/integrationStudy.js): model `rpm-delivery-comparison`, engine **8.1.0**, export schema **8**, website **8.3.0**. Input definitions and the saved scenario specify the actual run. No patient data have been collected, fitted or used to validate the proposed workflows.
 
 ## Design, cohort and timing
 
@@ -176,6 +176,43 @@ Added new starts = N × (1 − e) × (1 − r) × f × c × o × qB
 The 11.8% physician-attributed referral source does not establish an annual physician-exclusive rate or downstream care staffing. Its use as annual physician-only recruitment is an explicit assumption. The transferred 53% initiation and historical 84% MA-PD CMR completion do not validate Original Medicare pharmacist recruitment. [Referral study](https://www.jmir.org/2025/1/e64933/), [UCSD uptake manuscript](https://pages.ucsd.edu/~yfadlon/pdfs/Digital_Health.pdf), [PQA completion report](https://www.pqa.org/wp-content/uploads/2025/10/PQA-QuIRC-MTM-Report.pdf)
 
 The optional HealthPartners pathway replaces the review/offer/uptake stages with **385/1,423 intake attendance** and **80% first transmission among attendees**. Targeted share remains assumed. A 60-minute intake is a protocol allocation, not a measured mean; every attendee incurs it, including nonactivators. It replaces the short review and includes clinic education, so additional intake-driven starts do not incur duplicate clinic onboarding. Usual physician starts retain onboarding; vendor charges occur once per new start. These study workflows and population transfers are separate from the primary remote delivery comparison. [HyperLink 3](https://pmc.ncbi.nlm.nih.gov/articles/PMC9649877/)
+
+## Financial sensitivity and break-even analysis
+
+The shared sensitivity view uses **analytic expected values**, even when the calculator's headline is showing a seeded realization or the microsimulation playback is incomplete. It varies the exact inputs applied to both pages, without redrawing patients. The three financial outcomes are physician-program operating margin, pharmacist-program operating margin, and pharmacist margin minus physician margin. Deprescribing medication-cost offsets are excluded from all three. The financial study engine remains version **8.1.0**, while the separate sensitivity module and export are **analysis version 1.0.0 / schema 1**.
+
+### One-way analysis and driver ranking
+
+One input is varied while all other inputs remain fixed. The selected low/high bounds, the applied value when within the range, a regular grid and relevant Medicare clinical-time boundaries are evaluated. Points immediately below and at billing boundaries are retained so a fee jump is not confused with a smooth labor-cost change. The displayed range and driver ranking use the smallest and largest sampled values of the selected financial outcome, not an assumption that the low input produces the worst outcome. These are sampled extrema, not guaranteed continuous extrema for nonlinear inputs such as retention. A selected driver's trace shows these nonmonotone effects.
+
+The editable ranges are **investigator-selected stress-test bounds**, not confidence intervals, measured workload distributions or ranges validated by the cited studies. Citations support the underlying benchmark or describe its limitations; they do not validate the sensitivity bounds. Paid nurse/support time cannot be reduced below its held-fixed qualifying subset in a one-way analysis. Varying qualifying minutes changes payment eligibility while preserving the paid minutes and labor cost. A billing threshold is not a clinical staffing requirement, and a mathematically profitable duration need not be sufficient to deliver care.
+
+Ranking depends on both the range width and the selected output. In the matched cohort with equal payment tiers, common changes in collection realization, qualification or vendor costs can change both program margins together and cancel from their difference. A small or zero difference-based sensitivity is therefore not evidence that those inputs do not matter to absolute profitability. The same cancellation need not hold when payment tiers, enrollment or service histories differ.
+
+### Two-way analysis
+
+The heatmap evaluates two selected input values together while holding all remaining assumptions fixed. Each valid cell retains both program margins and their difference. Combinations violating model constraints are marked invalid, not assigned zero profit or silently clipped. The heatmap is a finite grid, not a confidence region; an unsampled boundary can fall between cells. Cell inspection is separate from the explicit action that applies its input values to the calculator and microsimulation. Sensitivity settings are shared when navigating between the pages. Applying different main-model assumptions resets the stress-test ranges; changing only the random seed preserves them because the expected-value analysis is unchanged.
+
+### Financial break-even thresholds
+
+For each program, let `A` be expected active patient-months, `S` expected new starts, `q` monthly qualification share, `s` setup qualification share, `c` collection realization, `R` the recurring allowance determined by that arm's qualifying clinical time, `U` the setup allowance, and `C` total allocated program cost. Expected collections are `c × (A × q × R + S × s × U)`. Holding all other inputs fixed:
+
+- Required collection realization: `c* = C / (A × q × R + S × s × U)`.
+- Required monthly qualification: `q* = (C − c × S × s × U) / (c × A × R)`.
+- Maximum affordable monthly technology fee: `v* = v + operating margin / A`, where `v` is the applied monthly technology fee.
+- Maximum affordable one-time vendor/device fee: `d* = d + operating margin / S`, where `d` is the applied fee per new start.
+
+Targets are interpreted within the input's feasible domain. A required share above 100% is unattainable under the other assumptions. If setup collections already cover total cost, no recurring qualification is needed to break even. A negative maximum affordable fee means eliminating that fee alone would not cover the deficit. Zero denominators distinguish a parameter with no financial effect from a missing revenue opportunity; undefined targets must not be shown as zero. Rates and prices are mathematical conditions, not guaranteed collection performance or vendor quotations.
+
+Pharmacist-time feasibility is evaluated by billing tier rather than with one monotone root search. The reported intervals identify where the pharmacist program has a nonnegative margin or where its margin is at least the physician program's margin, **within the chosen pharmacist-time range**. A clinical-time tier can produce a jump, so an interval boundary may be a tier transition rather than an exact zero-margin point. The open/closed endpoints matter. These intervals preserve technician paid and qualifying minutes and all other assumptions; they are not a validated 60:40 staffing mix or safe service duration after pharmacist time changes.
+
+The selected cost allocation also remains fixed. Under the existing-resources oversight scenario, additional supervision cost is zero but oversight time remains; the analysis does not prove that this capacity exists or that salaries can be removed from payroll. Qualification and collection fractions, workload, staffing eligibility, vendor prices, retention, overhead and clinical transfers remain assumptions unless identified otherwise.
+
+### Reproducibility and interpretation
+
+Sensitivity exports retain applied inputs, ranges, selected outcome, axes, expected base values, one-way points, two-way cells, thresholds, time intervals and methodological/source notes. JSON can be verified with `node scripts/replaySensitivity.js /path/to/sensitivity.json`, which recomputes the analysis with the matching engine; CSV provides full-precision inspection rows, with the full inputs, configuration and source metadata stored once on its base row; subsequent rows retain analysis/model versions and their local values and notes. Sensitivity replay compares recomputed derived numeric results with tolerance `min(0.000001, 0.000000001 + 0.000000000001 × max(|saved|, |recomputed|))` to accommodate browser-versus-Node floating-point arithmetic. The cap is one millionth of a dollar for margin fields and the same absolute numeric cap in each other derived field's units; it is not statistical uncertainty. Input/configuration consistency, sampled input coordinates, field structure, labels, notes and source metadata do not receive that tolerance. Material result differences, such as a one-cent margin change, must fail replay. The ordinary patient-level scenario JSON remains a separate artifact and format with its existing exact-replay behavior.
+
+These analyses characterize consequences of specified input changes. They do not assign probability to a profitable result, establish clinical equivalence, or estimate a sampling confidence interval. A probabilistic sensitivity analysis would require justified parameter distributions and dependence assumptions. A stronger empirical study would additionally validate task durations, qualification and collection performance, and implementation costs with clinical and billing stakeholders. This approach follows the principles of transparent, decision-relevant scenario analysis and calculation/face validation in [ISPOR's budget impact analysis guidance](https://www.ispor.org/publications/journals/value-in-health/abstract/Volume-17--Issue-1/budget-impact-analysis-principles-of-good-practice-report-of-the-ispor-2012-budget-impact-analysis-good-practice-ii-task-force).
 
 ## Simulation, exports and validation
 
